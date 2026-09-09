@@ -71,8 +71,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ startsWith(github.ref_name, 'v') && github.ref_name || inputs.release_tag || 'v__VERSION__' }}
-          releaseName: 'Clip Squeezer ${{ startsWith(github.ref_name, 'v') && github.ref_name || inputs.release_tag || 'v__VERSION__' }}'
+          tagName: v__VERSION__
+          releaseName: 'Clip Squeezer v__VERSION__'
           releaseBody: 'Download Clip Squeezer for Windows and macOS below.'
           releaseDraft: false
           prerelease: false

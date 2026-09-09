@@ -92,6 +92,9 @@ npm run tauri build
 
 The resulting installer (.msi / .exe / .dmg / .deb) will be located in src-tauri/target/release/bundle/.
 
+For automated multi-platform releases (Windows & macOS) via GitHub Actions, see [Release Guide](docs/RELEASING.md).
+
+
 ---
 
 ## Licensing
