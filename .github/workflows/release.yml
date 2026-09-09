@@ -25,7 +25,7 @@ jobs:
           - platform: 'macos-latest'
             target: 'aarch64-apple-darwin'
             args: '--target aarch64-apple-darwin'
-          - platform: 'macos-13'
+          - platform: 'macos-15-intel'
             target: 'x86_64-apple-darwin'
             args: '--target x86_64-apple-darwin'
 
@@ -34,16 +34,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install static FFmpeg & FFprobe
+      - name: Install static FFmpeg & FFprobe (Windows)
+        if: runner.os == 'Windows'
         uses: FedericoCarboni/setup-ffmpeg@v3
-        id: setup-ffmpeg
         with:
           ffmpeg-version: release
+
+      - name: Install FFmpeg & FFprobe (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Rust stable
