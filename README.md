@@ -1,99 +1,37 @@
 # Clip Squeezer
 
-![Clip Squeezer — Four useful things. One small app.](branding/social/repository-banner.png)
+**Four simple video tools. Free. Fast. On your device.**
 
-A fast, private, and simple desktop utility for common video tasks. Squeeze your videos down to size: no timelines, no codec jargon, no subscriptions, and zero cloud uploads. Everything runs 100% locally on your machine.
+Make videos smaller, convert formats, trim the start or end, or extract the audio — without uploading your files or opening a full video editor.
 
----
-
-## What It Does
-
-Most people don't need a heavy multi-track video editor when they just want to send a clip to a colleague or trim a meeting recording. Clip Squeezer gives you 4 straightforward actions:
-
-1. **Make smaller**: Compress videos to share via Slack, Discord, email, or messaging apps. Choose simple presets like *Best quality*, *Balanced*, or *Smallest file*.
-2. **Convert**: Turn tricky formats (like .mkv or .webm) into standard .mp4 or .mov files. Remuxes instantly whenever possible without losing any quality.
-3. **Trim**: Cut out the beginning or end of a clip with a visual timeline preview and exact time inputs.
-4. **Extract audio**: Save the soundtrack or voice recording as a high-quality .mp3 or .m4a file.
-
-### Guiding Principles
-
-- **Zero jargon**: No bitrate calculations, keyframe intervals, or container matrices shown to the user.
-- **Never modifies your original file**: All operations write to a new, collision-safe file (e.g. `video (compressed).mp4`).
-- **Completely offline**: No analytics, telemetry, or remote server dependencies. Your files never leave your computer.
-- **Cancel anytime**: Long processes can be cancelled with one click, cleanly terminating background tasks and cleaning up partial files.
+Available for **Windows** and **macOS**. Free and open source.
 
 ---
 
-## Branding
+## Four simple tools
 
-[Browse the brand kit](branding/index.html) · [Usage guide and asset downloads](branding/README.md)
-
-Logo variants, 27 interface icons, desktop app icons, social cards and release artwork share one visual identity.
-
-## Architecture
-
-Clip Squeezer is built with:
-- **Tauri 2**: Lightweight native desktop shell with low memory footprint.
-- **React 19 + TypeScript**: Minimal, responsive UI with a custom vector icon family.
-- **Bundled FFmpeg & FFprobe**: Embedded sidecar binaries for cross-platform media processing.
-- **Two-Stage Planner**: Strict Rust domain engine separating plan generation from execution.
+- **Compress**: Bring large video files down to size for Slack, Discord, email, or web sharing with simple quality presets (*Best quality*, *Balanced*, *Smallest file*).
+- **Convert**: Switch formats (MP4, MOV, MKV, WebM) cleanly without codec confusion.
+- **Trim**: Keep only the part you need by choosing a start and end point with a visual preview.
+- **Extract audio**: Save the sound or voice track directly as an MP3 or M4A file.
 
 ---
 
-## Development Setup
+## Why Clip Squeezer?
 
-### Prerequisites
+- **100% Local & Private**: Everything processes right on your computer. Nothing is ever uploaded, tracked, or sent to a server.
+- **Safe by default**: Your original video is never overwritten. Outputs are always saved as new files.
+- **No bloat**: No timelines, complicated menus, or multi-track complexity. Just pick a tool, choose your file, and get your result.
+- **Instant cancel**: Stop any running job with a single click — background work halts immediately and temporary files are cleaned up.
 
-- **Node.js**: v18 or later
-- **Rust**: 1.80+ (MSVC toolchain on Windows)
-- **FFmpeg 7.0+**: Installed on your system (e.g., via `choco install ffmpeg` or `brew install ffmpeg`)
+---
 
-### 1. Clone and Install Dependencies
+## Documentation & Project Guides
 
-```bash
-# Clone the repository
-git clone https://github.com/rjk/clip-squeezer.git
-cd clip-squeezer
-
-# Install web dependencies
-npm install
-```
-
-### 2. Set Up Sidecar Binaries
-
-The application bundles `ffmpeg` and `ffprobe` as Tauri sidecars. Run the setup script to copy them into the proper sidecar path:
-
-**Windows (PowerShell):**
-```powershell
-.\scripts\setup-sidecars.ps1
-```
-
-### 3. Run Development Server
-
-```bash
-npm run tauri dev
-```
-
-### 4. Running Tests
-
-```bash
-# Frontend build & typecheck
-npm run build
-
-# Rust unit and integration tests
-cargo test --manifest-path src-tauri/Cargo.toml
-```
-
-### 5. Packaging for Distribution
-
-```bash
-npm run tauri build
-```
-
-The resulting installer (.msi / .exe / .dmg / .deb) will be located in src-tauri/target/release/bundle/.
-
-For automated multi-platform releases (Windows & macOS) via GitHub Actions, see [Release Guide](docs/RELEASING.md).
-
+- **[Development Setup](docs/DEVELOPMENT.md)**: Local prerequisites, building from source, running tests, and packaging.
+- **[Architecture & Engine](docs/ARCHITECTURE.md)**: Details on the Tauri desktop shell, two-stage planner, and bundled FFmpeg sidecar runner.
+- **[Branding & Design](docs/BRANDING.md)**: Brand assets, logo files, color palette, and interface icon set.
+- **[Release Process](docs/RELEASING.md)**: GitHub Actions build and release workflow.
 
 ---
 
