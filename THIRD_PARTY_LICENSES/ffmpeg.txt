@@ -1,0 +1,35 @@
+FFmpeg Notice and Licensing Information
+========================================
+
+This application distributes precompiled binary executables of FFmpeg and FFprobe
+(version 7.0.2-full_build-www.gyan.dev) as external sidecar processes.
+
+1. Separation and Architecture
+------------------------------
+Clip Squeezer does NOT link directly against FFmpeg libraries (libavcodec, libavformat, etc.).
+All media operations are executed strictly via separate operating system child processes
+using standard command-line interfaces and input/output pipes.
+
+2. FFmpeg License
+-----------------
+FFmpeg is licensed under the GNU General Public License (GPL) version 3.0 or later
+(or GNU Lesser General Public License (LGPL) version 2.1 or later, depending on configuration).
+Because the bundled binary includes libraries such as libx264 and libx265, the resulting
+binary is distributed under the terms of the GNU General Public License (GPL) version 3.0.
+
+3. Source Code Availability
+---------------------------
+The complete source code of FFmpeg is available from the official project website:
+https://ffmpeg.org/download.html
+
+Source code for the specific build provided by Gyan.dev can be found at:
+https://www.gyan.dev/ffmpeg/builds/
+
+4. Modifications
+----------------
+The FFmpeg binaries bundled with Clip Squeezer are official, unmodified upstream builds.
+
+5. GNU General Public License v3.0 Summary
+-------------------------------------------
+You can find the full text of the GNU General Public License at:
+https://www.gnu.org/licenses/gpl-3.0.html

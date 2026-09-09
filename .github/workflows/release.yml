@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: false
+        default: 'v0.1.0'
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            target: 'x86_64-pc-windows-msvc'
+            args: ''
+          - platform: 'macos-latest'
+            target: 'aarch64-apple-darwin'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-13'
+            target: 'x86_64-apple-darwin'
+            args: '--target x86_64-apple-darwin'
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install static FFmpeg & FFprobe
+        uses: FedericoCarboni/setup-ffmpeg@v3
+        id: setup-ffmpeg
+        with:
+          ffmpeg-version: release
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Windows Sidecars
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/setup-sidecars.ps1 -TargetTriple ${{ matrix.target }}
+
+      - name: Setup macOS Sidecars
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x ./scripts/setup-sidecars.sh
+          ./scripts/setup-sidecars.sh ${{ matrix.target }}
+
+      - name: Build and Publish Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ startsWith(github.ref_name, 'v') && github.ref_name || inputs.release_tag || 'v__VERSION__' }}
+          releaseName: 'Clip Squeezer ${{ startsWith(github.ref_name, 'v') && github.ref_name || inputs.release_tag || 'v__VERSION__' }}'
+          releaseBody: 'Download Clip Squeezer for Windows and macOS below.'
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
