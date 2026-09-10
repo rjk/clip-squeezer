@@ -170,6 +170,17 @@ export const TrimView: React.FC<TrimViewProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toFixed(1).padStart(4, '0')}`;
   };
 
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024 * 1024) {
+      return `${Math.round(bytes / 1024)} KB`;
+    } else if (bytes < 1024 * 1024 * 1024) {
+      const mb = bytes / (1024 * 1024);
+      return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB`;
+    } else {
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    }
+  };
+
   const formatDurationLabel = (secs: number): string => {
     if (secs >= 3600) {
       const h = Math.floor(secs / 3600);
@@ -427,6 +438,13 @@ export const TrimView: React.FC<TrimViewProps> = ({
   const startPercent = (startSeconds / duration) * 100;
   const endPercent = (endSeconds / duration) * 100;
   const currentPercent = (Math.max(0, Math.min(duration, currentTime)) / duration) * 100;
+
+  const keptDuration = Math.max(0.1, endSeconds - startSeconds);
+  const durationRatio = Math.min(1, keptDuration / duration);
+  const estimatedBytes = Math.max(20 * 1024, Math.round(mediaInfo.size_bytes * durationRatio));
+  const savingsPercent = Math.round(
+    ((mediaInfo.size_bytes - estimatedBytes) / mediaInfo.size_bytes) * 100
+  );
 
   return (
     <div className="config-card">
@@ -758,8 +776,13 @@ export const TrimView: React.FC<TrimViewProps> = ({
         {/* Submit */}
         <div className="config-actions">
           <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500' }}>
-              Keep: <strong>{formatTime(startSeconds)}</strong> to <strong>{formatTime(endSeconds)}</strong>
+            <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: '600' }}>
+              New file size: around {formatBytes(estimatedBytes)}
+              {savingsPercent > 0 && (
+                <span style={{ marginLeft: '6px', color: 'var(--primary)', fontWeight: '600' }}>
+                  ({savingsPercent}% smaller)
+                </span>
+              )}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
               Your original file is never modified.
