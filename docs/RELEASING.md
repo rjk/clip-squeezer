@@ -20,26 +20,57 @@ Each runner downloads the matching static FFmpeg/FFprobe binaries into `src-taur
 
 ## Publishing a Release
 
-### 1. Update Version Numbers (When Releasing)
-Ensure the version matches in:
-- `package.json` (`"version": "0.1.0"`)
-- `src-tauri/tauri.conf.json` (`"version": "0.1.0"`)
-- `src-tauri/Cargo.toml` (`version = "0.1.0"`)
+### Automated Release (Recommended)
 
-### 2. Commit and Push
+Run the release script from the repository root:
+
 ```bash
-git commit -am "chore: bump version to 0.1.0"
+# Interactive mode (prompts for patch, minor, major, or custom version)
+npm run release
+
+# Or specify the bump type directly
+npm run release -- patch
+npm run release -- minor
+npm run release -- 0.3.0
+
+# Optional flags:
+npm run release -- --dry-run   # Test version bump, lockfile updates, and build without pushing
+npm run release -- -y           # Skip confirmation prompt
+```
+
+The script automatically:
+1. Validates a clean git working tree on `main`.
+2. Bumps version in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
+3. Synchronizes `package-lock.json` and `Cargo.lock`.
+4. Runs verification build (`npm run build`).
+5. Commits changes (`chore: bump version to X.Y.Z`).
+6. Pushes commit to `origin main`.
+7. Creates and pushes the matching `vX.Y.Z` git tag to trigger the GitHub Actions release workflow.
+
+---
+
+### Manual Release Steps (Reference)
+
+If you prefer to perform the steps manually:
+
+#### 1. Update Version Numbers
+Ensure the version matches in:
+- `package.json` (`"version": "X.Y.Z"`)
+- `src-tauri/tauri.conf.json` (`"version": "X.Y.Z"`)
+- `src-tauri/Cargo.toml` (`version = "X.Y.Z"`)
+- Run `npm install --package-lock-only` and `cargo check` in `src-tauri` to update lockfiles.
+
+#### 2. Commit and Push
+```bash
+git commit -am "chore: bump version to X.Y.Z"
 git push origin main
 ```
 
-### 3. Create and Push a Version Tag
-Creating and pushing any `v*` tag triggers the build and release workflow automatically:
+#### 3. Create and Push a Version Tag
 ```bash
-git tag -a v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
 ```
-
-*(If you ever need to move an existing tag to the latest commit: `git tag -f -a v0.1.0 -m "Release v0.1.0"` followed by `git push origin v0.1.0 --force`)*
 
 ---
 
