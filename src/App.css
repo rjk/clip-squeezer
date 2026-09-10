@@ -1240,6 +1240,39 @@ button {
   color: var(--text-main);
 }
 
+.trim-time-input {
+  width: 78px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-main);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.trim-time-input:hover {
+  border-color: var(--primary);
+}
+
+.trim-time-input:focus,
+.trim-time-input:focus-visible,
+.trim-time-input.active {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.trim-time-input.duration {
+  width: 84px;
+  padding: 3px 6px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
 @media (max-height: 640px) {
   .app-wrapper {
     padding: 12px 16px;

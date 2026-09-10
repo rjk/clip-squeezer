@@ -648,6 +648,7 @@ export const TrimView: React.FC<TrimViewProps> = ({
             <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>Start:</span>
             <input
               type="text"
+              className={`trim-time-input ${activeControl === 'start' ? 'active' : ''}`}
               defaultValue={formatTime(startSeconds)}
               key={`start_${startSeconds}`}
               onFocus={() => setActiveControl('start')}
@@ -660,15 +661,6 @@ export const TrimView: React.FC<TrimViewProps> = ({
               onBlur={(e) => {
                 commitStartInput(e.target.value);
               }}
-              style={{
-                width: '78px',
-                padding: '4px 8px',
-                fontSize: '0.85rem',
-                borderRadius: '4px',
-                border: '1px solid var(--border)',
-                background: 'var(--bg-card)',
-                color: 'var(--text-main)',
-              }}
             />
           </div>
 
@@ -680,6 +672,7 @@ export const TrimView: React.FC<TrimViewProps> = ({
               <input
                 type="text"
                 autoFocus
+                className="trim-time-input duration"
                 value={durationInputVal}
                 onChange={(e) => setDurationInputVal(e.target.value)}
                 onKeyDown={(e) => {
@@ -690,17 +683,6 @@ export const TrimView: React.FC<TrimViewProps> = ({
                   }
                 }}
                 onBlur={() => commitDurationChange(durationInputVal)}
-                style={{
-                  width: '84px',
-                  padding: '3px 6px',
-                  fontSize: '0.85rem',
-                  fontWeight: '600',
-                  borderRadius: '4px',
-                  border: '1px solid var(--primary)',
-                  background: 'var(--bg-card)',
-                  color: 'var(--primary)',
-                  textAlign: 'center',
-                }}
               />
             ) : (
               <button
@@ -734,6 +716,7 @@ export const TrimView: React.FC<TrimViewProps> = ({
             <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>End:</span>
             <input
               type="text"
+              className={`trim-time-input ${activeControl === 'end' ? 'active' : ''}`}
               defaultValue={formatTime(endSeconds)}
               key={`end_${endSeconds}`}
               onFocus={() => setActiveControl('end')}
@@ -745,15 +728,6 @@ export const TrimView: React.FC<TrimViewProps> = ({
               }}
               onBlur={(e) => {
                 commitEndInput(e.target.value);
-              }}
-              style={{
-                width: '78px',
-                padding: '4px 8px',
-                fontSize: '0.85rem',
-                borderRadius: '4px',
-                border: '1px solid var(--border)',
-                background: 'var(--bg-card)',
-                color: 'var(--text-main)',
               }}
             />
           </div>
