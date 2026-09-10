@@ -33,6 +33,8 @@ pub struct JobResult {
     pub friendly_original_size: String,
     pub friendly_result_size: String,
     pub savings_percent: Option<f64>,
+    pub friendly_duration: Option<String>,
+    pub friendly_resolution: Option<String>,
 }
 
 #[derive(Default, Clone)]
@@ -81,6 +83,7 @@ impl JobManager {
         app: AppHandle,
         job_id: String,
         ffmpeg_bin: &Path,
+        ffprobe_bin: Option<&Path>,
         plan: &MediaPlan,
         original_size_bytes: u64,
     ) -> Result<JobResult, MediaError> {
@@ -210,6 +213,21 @@ impl JobManager {
             None
         };
 
+        let (friendly_duration, friendly_resolution) = if let Some(probe_bin) = ffprobe_bin {
+            if let Ok(info) = crate::media::probe::probe_media_file(probe_bin, &plan.output_path) {
+                let res = if info.friendly_resolution.is_empty() {
+                    None
+                } else {
+                    Some(info.friendly_resolution)
+                };
+                (Some(info.friendly_duration), res)
+            } else {
+                (None, None)
+            }
+        } else {
+            (None, None)
+        };
+
         Ok(JobResult {
             output_path: plan.output_path.to_string_lossy().to_string(),
             original_size_bytes,
@@ -217,6 +235,8 @@ impl JobManager {
             friendly_original_size,
             friendly_result_size,
             savings_percent,
+            friendly_duration,
+            friendly_resolution,
         })
     }
 }

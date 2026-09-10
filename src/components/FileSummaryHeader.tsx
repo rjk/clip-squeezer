@@ -26,9 +26,9 @@ export const FileSummaryHeader: React.FC<FileSummaryHeaderProps> = ({ mediaInfo,
         </div>
       </div>
 
-      <button className="btn-secondary change-file-btn" onClick={onReset} title="Choose a different file">
-        <Icon name="back" size={16} />
-        <span>Change</span>
+      <button className="btn-secondary change-file-btn" onClick={onReset} title="Start over with a different file">
+        <Icon name="restart" size={16} />
+        <span>Start over</span>
       </button>
     </div>
   );

@@ -28,6 +28,7 @@ pub fn run() {
             commands::ensure_preview_proxy,
             commands::cancel_job,
             commands::show_in_folder,
+            commands::open_file_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

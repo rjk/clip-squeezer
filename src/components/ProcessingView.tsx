@@ -1,18 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { Icon } from './Icon';
 import { ProgressUpdate } from '../types/media';
 
 interface ProcessingViewProps {
   title: string;
-  filename: string;
+  sourceFilename: string;
+  targetFilename?: string | null;
+  jobId?: string | null;
   onCancel: () => void;
   isCancelling: boolean;
 }
 
 export const ProcessingView: React.FC<ProcessingViewProps> = ({
   title,
-  filename,
+  sourceFilename,
+  targetFilename,
+  jobId,
   onCancel,
   isCancelling,
 }) => {
@@ -22,13 +26,25 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     speed: null,
   });
 
+  const startTimeRef = useRef<number>(Date.now());
+
   useEffect(() => {
+    startTimeRef.current = Date.now();
+    setProgress({
+      percent: 0,
+      out_time_seconds: 0,
+      speed: null,
+    });
+
     const unlistenPromise = listen<{
       job_id: string;
       percent: number;
       out_time_seconds: number;
       speed: string | null;
     }>('job-progress', (event) => {
+      if (jobId && event.payload.job_id !== jobId) {
+        return;
+      }
       setProgress({
         percent: Math.min(100, Math.max(0, event.payload.percent)),
         out_time_seconds: event.payload.out_time_seconds,
@@ -39,7 +55,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     return () => {
       unlistenPromise.then((fn) => fn());
     };
-  }, []);
+  }, [jobId]);
 
   const formatSeconds = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -47,13 +63,35 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  // Calculate estimated time remaining after sufficient elapsed progress
+  const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
+  let remainingTimeText: string | null = null;
+
+  if (progress.percent >= 3 && elapsedSec >= 3) {
+    const totalEstimatedSec = elapsedSec / (progress.percent / 100);
+    const remainingSec = Math.max(0, Math.round(totalEstimatedSec - elapsedSec));
+    remainingTimeText = `Time remaining: ${formatSeconds(remainingSec)}`;
+  }
+
   return (
     <div className="progress-container">
       <div>
         <h2 className="section-heading">{title}</h2>
-        <p className="drop-subtitle" style={{ marginTop: '4px' }}>
-          {filename}
-        </p>
+        <div className="progress-files-flow">
+          <span className="progress-file-name" title={sourceFilename}>
+            {sourceFilename}
+          </span>
+          {targetFilename && (
+            <>
+              <span className="progress-flow-arrow" aria-hidden="true">
+                →
+              </span>
+              <span className="progress-file-name target" title={targetFilename}>
+                {targetFilename}
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="progress-bar-track">
@@ -62,10 +100,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
 
       <div className="progress-meta">
         <span>{Math.round(progress.percent)}% completed</span>
-        <span>
-          Time processed: {formatSeconds(progress.out_time_seconds)}
-          {progress.speed ? ` (${progress.speed})` : ''}
-        </span>
+        <span>{remainingTimeText || ''}</span>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>

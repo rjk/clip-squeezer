@@ -1,6 +1,5 @@
 import React from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { openPath } from '@tauri-apps/plugin-opener';
 import { Icon } from './Icon';
 
 export interface HistoryItem {
@@ -30,7 +29,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 }) => {
   const handleOpenFile = async (path: string) => {
     try {
-      await openPath(path);
+      await invoke('open_file_path', { path });
     } catch (err) {
       console.error('Failed to open file:', err);
     }

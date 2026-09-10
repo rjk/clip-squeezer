@@ -9,7 +9,9 @@ import { Icon } from '../../components/Icon';
 
 interface ConvertViewProps {
   mediaInfo: MediaInfo;
+  initialRequest?: ConvertRequest | null;
   onStartConvert: (request: ConvertRequest) => void;
+  onChange?: (request: ConvertRequest) => void;
   onBack: () => void;
 }
 
@@ -23,7 +25,9 @@ interface ConversionPlanSummary {
 
 export const ConvertView: React.FC<ConvertViewProps> = ({
   mediaInfo,
+  initialRequest,
   onStartConvert,
+  onChange,
   onBack,
 }) => {
   const inputExt = mediaInfo.filename.split('.').pop()?.toLowerCase() || '';
@@ -49,6 +53,11 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
       label: 'WebM',
       desc: 'Mainly useful for web workflows.',
     },
+    {
+      id: 'Gif',
+      label: 'GIF',
+      desc: 'Best for short looping animations and easy sharing.',
+    },
   ];
 
   // Filter out the source format if it already matches
@@ -57,45 +66,55 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
     if (opt.id === 'Mov' && inputExt === 'mov') return false;
     if (opt.id === 'Mkv' && inputExt === 'mkv') return false;
     if (opt.id === 'Webm' && inputExt === 'webm') return false;
+    if (opt.id === 'Gif' && inputExt === 'gif') return false;
     return true;
   });
 
-  const [format, setFormat] = useState<ConvertFormat>(() => formatOptions[0]?.id || 'Mp4');
-  const [summary, setSummary] = useState<ConversionPlanSummary | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
+  const [format, setFormat] = useState<ConvertFormat>(() => {
+    if (initialRequest && formatOptions.some((opt) => opt.id === initialRequest.format)) {
+      return initialRequest.format;
+    }
+    return formatOptions[0]?.id || 'Mp4';
+  });
+  const [summaries, setSummaries] = useState<Partial<Record<ConvertFormat, ConversionPlanSummary>>>({});
 
   const baseName = mediaInfo.filename.replace(/\.[^/.]+$/, '');
-  const destFilename = `${baseName} (converted).${format.toLowerCase()}`;
+  const destFilename = `${baseName}-converted.${format.toLowerCase()}`;
+
+  const handleFormatSelect = (newFormat: ConvertFormat) => {
+    setFormat(newFormat);
+    onChange?.({ format: newFormat });
+  };
 
   useEffect(() => {
     let isCurrent = true;
-    setIsChecking(true);
 
-    invoke<ConversionPlanSummary>('check_conversion', {
-      path: mediaInfo.path,
-      format,
-    })
-      .then((res) => {
-        if (isCurrent) {
-          setSummary(res);
-        }
+    // Check all format options upfront so switching is instantaneous and never flickers
+    formatOptions.forEach((opt) => {
+      invoke<ConversionPlanSummary>('check_conversion', {
+        path: mediaInfo.path,
+        format: opt.id,
       })
-      .catch((err) => {
-        console.error('Failed to check conversion:', err);
-      })
-      .finally(() => {
-        if (isCurrent) {
-          setIsChecking(false);
-        }
-      });
+        .then((res) => {
+          if (isCurrent) {
+            setSummaries((prev) => ({ ...prev, [opt.id]: res }));
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to check conversion:', err);
+        });
+    });
 
     return () => {
       isCurrent = false;
     };
-  }, [mediaInfo.path, format]);
+  }, [mediaInfo.path]);
+
+  const currentSummary = summaries[format];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    onChange?.({ format });
     onStartConvert({ format });
   };
 
@@ -111,12 +130,12 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div className="config-section">
           <label className="config-label">Choose destination format</label>
-          <div className="option-cards">
+          <div className="convert-format-grid">
             {formatOptions.map((opt) => (
               <div
                 key={opt.id}
                 className={`option-card ${format === opt.id ? 'active' : ''}`}
-                onClick={() => setFormat(opt.id)}
+                onClick={() => handleFormatSelect(opt.id)}
                 tabIndex={0}
                 role="button"
               >
@@ -127,36 +146,57 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
           </div>
         </div>
 
-        {/* Plain language remux/transcode status indicator */}
-        {summary && !isChecking && (
-          <div
-            style={{
-              padding: '14px 18px',
-              borderRadius: '8px',
-              backgroundColor: summary.is_remux ? 'var(--success-bg)' : 'var(--bg-secondary)',
-              border: `1px solid ${summary.is_remux ? 'var(--success)' : 'var(--border)'}`,
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px',
-            }}
-          >
-            {summary.is_remux ? (
-              <Icon name="fast" size={20} style={{ color: 'var(--success)', marginTop: '2px', flexShrink: 0 }} />
-            ) : (
-              <Icon name="clock" size={20} style={{ color: 'var(--text-muted)', marginTop: '2px', flexShrink: 0 }} />
-            )}
-            <div>
-              <div style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--text-main)' }}>
-                {summary.is_remux ? 'No quality change' : 'The video needs converting'}
-              </div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                {summary.is_remux
-                  ? 'This conversion can be completed without re-encoding the video.'
-                  : 'This will take longer because the video format needs to change.'}
-              </div>
+        {/* Plain language remux/transcode status indicator - always mounted with stable height to prevent layout shift */}
+        <div
+          style={{
+            padding: '14px 18px',
+            borderRadius: '8px',
+            backgroundColor:
+              format === 'Gif'
+                ? 'var(--bg-secondary)'
+                : currentSummary?.is_remux
+                ? 'var(--success-bg)'
+                : 'var(--bg-secondary)',
+            border: `1px solid ${
+              format === 'Gif'
+                ? 'var(--border)'
+                : currentSummary?.is_remux
+                ? 'var(--success)'
+                : 'var(--border)'
+            }`,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            minHeight: '74px',
+            boxSizing: 'border-box',
+            transition: 'background-color 0.15s ease, border-color 0.15s ease',
+          }}
+          className={`convert-info-box ${currentSummary?.is_remux && format !== 'Gif' ? 'fast-remux' : ''}`}
+        >
+          {format === 'Gif' ? (
+            <Icon name="info" size={20} style={{ color: 'var(--text-muted)', marginTop: '2px', flexShrink: 0 }} />
+          ) : currentSummary?.is_remux ? (
+            <Icon name="fast" size={20} style={{ color: 'var(--success)', marginTop: '2px', flexShrink: 0 }} />
+          ) : (
+            <Icon name="clock" size={20} style={{ color: 'var(--text-muted)', marginTop: '2px', flexShrink: 0 }} />
+          )}
+          <div>
+            <div style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--text-main)' }}>
+              {format === 'Gif'
+                ? 'Made for short clips'
+                : currentSummary?.is_remux
+                ? 'No quality change'
+                : 'The video needs converting'}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              {format === 'Gif'
+                ? 'GIFs loop automatically and are easy to share, but can be much larger than MP4 or WebM.'
+                : currentSummary?.is_remux
+                ? "It'll be quick with no quality loss as we don't need to re-encode the video."
+                : 'This will take a bit longer as it needs re-encoding. Quality should remain the same.'}
             </div>
           </div>
-        )}
+        </div>
 
         <div className="config-actions">
           <div>

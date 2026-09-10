@@ -49,7 +49,7 @@ export interface CompressRequest {
   compatibility: CompressCompatibility;
 }
 
-export type ConvertFormat = 'Mp4' | 'Mov' | 'Mkv' | 'Webm';
+export type ConvertFormat = 'Mp4' | 'Mov' | 'Mkv' | 'Webm' | 'Gif';
 
 export interface ConvertRequest {
   format: ConvertFormat;
@@ -79,4 +79,6 @@ export interface JobResult {
   friendly_original_size: string;
   friendly_result_size: string;
   savings_percent: number | null;
+  friendly_duration?: string | null;
+  friendly_resolution?: string | null;
 }

@@ -100,11 +100,21 @@ export function App() {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [jobResult, setJobResult] = useState<JobResult | null>(null);
 
+  // Saved options per file so cancelling or navigating back preserves user choices
+  const [compressRequest, setCompressRequest] = useState<CompressRequest | null>(null);
+  const [convertRequest, setConvertRequest] = useState<ConvertRequest | null>(null);
+  const [extractAudioRequest, setExtractAudioRequest] = useState<ExtractAudioRequest | null>(null);
+  const [trimRequest, setTrimRequest] = useState<TrimRequest | null>(null);
+
   const handleFileSelected = async (path: string) => {
     setIsProbing(true);
     setError(null);
     setSelectedAction(null);
     setJobResult(null);
+    setCompressRequest(null);
+    setConvertRequest(null);
+    setExtractAudioRequest(null);
+    setTrimRequest(null);
 
     try {
       const info = await invoke<MediaInfo>('probe_media', { path });
@@ -129,6 +139,7 @@ export function App() {
   const handleStartCompress = async (request: CompressRequest) => {
     if (!mediaInfo) return;
 
+    setCompressRequest(request);
     setIsProcessing(true);
     setIsCancelling(false);
     setProcessingTitle('Making video smaller...');
@@ -138,6 +149,7 @@ export function App() {
 
     try {
       const result = await invoke<JobResult>('start_compression', {
+        jobId,
         path: mediaInfo.path,
         request,
       });
@@ -168,6 +180,7 @@ export function App() {
   const handleStartConvert = async (request: ConvertRequest) => {
     if (!mediaInfo) return;
 
+    setConvertRequest(request);
     setIsProcessing(true);
     setIsCancelling(false);
     setProcessingTitle(`Converting to ${request.format}...`);
@@ -177,6 +190,7 @@ export function App() {
 
     try {
       const result = await invoke<JobResult>('start_conversion', {
+        jobId,
         path: mediaInfo.path,
         request,
       });
@@ -207,6 +221,7 @@ export function App() {
   const handleStartExtractAudio = async (request: ExtractAudioRequest) => {
     if (!mediaInfo) return;
 
+    setExtractAudioRequest(request);
     setIsProcessing(true);
     setIsCancelling(false);
     setProcessingTitle('Extracting audio track...');
@@ -216,6 +231,7 @@ export function App() {
 
     try {
       const result = await invoke<JobResult>('start_audio_extraction', {
+        jobId,
         path: mediaInfo.path,
         request,
       });
@@ -246,6 +262,7 @@ export function App() {
   const handleStartTrim = async (request: TrimRequest) => {
     if (!mediaInfo) return;
 
+    setTrimRequest(request);
     setIsProcessing(true);
     setIsCancelling(false);
     setProcessingTitle('Trimming video...');
@@ -255,6 +272,7 @@ export function App() {
 
     try {
       const result = await invoke<JobResult>('start_trim', {
+        jobId,
         path: mediaInfo.path,
         request,
       });
@@ -303,15 +321,62 @@ export function App() {
     setSelectedAction(null);
     setJobResult(null);
     setError(null);
+    setCompressRequest(null);
+    setConvertRequest(null);
+    setExtractAudioRequest(null);
+    setTrimRequest(null);
+  };
+
+  const getTargetFilename = (): string | null => {
+    if (!mediaInfo || !selectedAction) return null;
+    const lastDot = mediaInfo.filename.lastIndexOf('.');
+    const stem = lastDot !== -1 ? mediaInfo.filename.slice(0, lastDot) : mediaInfo.filename;
+    const origExt = lastDot !== -1 ? mediaInfo.filename.slice(lastDot + 1).toLowerCase() : 'mp4';
+
+    switch (selectedAction) {
+      case 'compress':
+        return `${stem}-smaller.mp4`;
+      case 'convert': {
+        const ext = convertRequest?.format.toLowerCase() || 'mp4';
+        return `${stem}-converted.${ext}`;
+      }
+      case 'trim':
+        return `${stem}-trimmed.${origExt}`;
+      case 'extract_audio': {
+        let ext = 'mp3';
+        if (extractAudioRequest?.mode === 'OriginalQuality') {
+          const codec = mediaInfo.audio_streams[0]?.codec.toLowerCase();
+          if (codec === 'aac') ext = 'm4a';
+          else if (codec === 'mp3') ext = 'mp3';
+          else if (codec === 'opus') ext = 'opus';
+          else if (codec === 'flac') ext = 'flac';
+          else if (codec === 'vorbis') ext = 'ogg';
+          else ext = 'm4a';
+        } else if (extractAudioRequest?.mode === 'Mp3') {
+          ext = 'mp3';
+        } else if (extractAudioRequest?.mode === 'M4a') {
+          ext = 'm4a';
+        }
+        return `${stem}-audio.${ext}`;
+      }
+      default:
+        return null;
+    }
   };
 
   return (
     <div className="app-wrapper">
       <header className="app-header">
         <button className="app-brand" onClick={handleReset} title="Return to home screen" aria-label="Clip Squeezer home">
-          <img className="brand-mark" src="/brand/app-icon.svg" width="40" height="40" alt="" />
+          <img className="brand-mark" src="/brand/app-icon.svg" width="22" height="22" alt="" />
           <span className="app-title">Clip Squeezer</span>
         </button>
+        {jobResult && (
+          <button className="btn-secondary" onClick={handleReset} title="Start over with a different file">
+            <Icon name="restart" size={16} />
+            <span>Start over</span>
+          </button>
+        )}
       </header>
 
       <main className="app-main">
@@ -331,7 +396,7 @@ export function App() {
                   className="btn-secondary"
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `${error.title}\n${error.message}\n${error.technical_details}`
+                       `${error.title}\n${error.message}\n${error.technical_details}`
                     );
                     setHasCopied(true);
                     setTimeout(() => setHasCopied(false), 2000);
@@ -350,15 +415,14 @@ export function App() {
         ) : isProcessing ? (
           <ProcessingView
             title={processingTitle}
-            filename={mediaInfo.filename}
+            sourceFilename={mediaInfo.filename}
+            targetFilename={getTargetFilename()}
+            jobId={currentJobId}
             onCancel={handleCancelJob}
             isCancelling={isCancelling}
           />
         ) : jobResult ? (
-          <SuccessView
-            result={jobResult}
-            onNewFile={handleReset}
-          />
+          <SuccessView result={jobResult} />
         ) : (
           <div className="media-workspace">
             <FileSummaryHeader mediaInfo={mediaInfo} onReset={handleReset} />
@@ -371,24 +435,32 @@ export function App() {
             ) : selectedAction === 'compress' ? (
               <CompressView
                 mediaInfo={mediaInfo}
+                initialRequest={compressRequest}
+                onChange={setCompressRequest}
                 onStartCompress={handleStartCompress}
                 onBack={() => setSelectedAction(null)}
               />
             ) : selectedAction === 'convert' ? (
               <ConvertView
                 mediaInfo={mediaInfo}
+                initialRequest={convertRequest}
+                onChange={setConvertRequest}
                 onStartConvert={handleStartConvert}
                 onBack={() => setSelectedAction(null)}
               />
             ) : selectedAction === 'extract_audio' ? (
               <ExtractAudioView
                 mediaInfo={mediaInfo}
+                initialRequest={extractAudioRequest}
+                onChange={setExtractAudioRequest}
                 onStartExtract={handleStartExtractAudio}
                 onBack={() => setSelectedAction(null)}
               />
             ) : selectedAction === 'trim' ? (
               <TrimView
                 mediaInfo={mediaInfo}
+                initialRequest={trimRequest}
+                onChange={setTrimRequest}
                 onStartTrim={handleStartTrim}
                 onBack={() => setSelectedAction(null)}
               />
@@ -404,14 +476,16 @@ export function App() {
         )}
       </main>
 
-      <footer className="app-footer" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-        <button className="about-link" onClick={() => setShowHistory(true)}>
-          <Icon name="history" size={16} /> Activity History {history.length > 0 ? `(${history.length})` : ''}
-        </button>
-        <button className="about-link" onClick={() => setShowAbout(true)}>
-          <Icon name="info" size={16} /> About & Privacy
-        </button>
-      </footer>
+      {!mediaInfo && (
+        <footer className="app-footer" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <button className="about-link" onClick={() => setShowHistory(true)}>
+            <Icon name="history" size={16} /> History {history.length > 0 ? `(${history.length})` : ''}
+          </button>
+          <button className="about-link" onClick={() => setShowAbout(true)}>
+            <Icon name="info" size={16} /> About
+          </button>
+        </footer>
+      )}
 
       {showHistory && (
         <HistoryModal

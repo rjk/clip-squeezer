@@ -34,6 +34,7 @@ pub async fn probe_media(app: AppHandle, path: String) -> Result<MediaInfo, Erro
 pub async fn start_compression(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
+    job_id: Option<String>,
     path: String,
     request: CompressRequest,
 ) -> Result<JobResult, ErrorDetails> {
@@ -44,12 +45,20 @@ pub async fn start_compression(
     let probe = probe_media_file(&ffprobe_bin, &file_path).map_err(|e| e.to_user_friendly())?;
     let plan = plan_compression(&probe, &request).map_err(|e| e.to_user_friendly())?;
 
-    let job_id = format!("job_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
+    let job_id = job_id.unwrap_or_else(|| {
+        format!(
+            "job_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        )
+    });
     let job_manager = state.job_manager.clone();
     let original_size = probe.size_bytes;
 
     tokio::task::spawn_blocking(move || {
-        job_manager.run_job(app, job_id, &ffmpeg_bin, &plan, original_size)
+        job_manager.run_job(app, job_id, &ffmpeg_bin, Some(&ffprobe_bin), &plan, original_size)
     })
     .await
     .map_err(|e| ErrorDetails {
@@ -77,6 +86,7 @@ pub async fn check_conversion(
 pub async fn start_conversion(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
+    job_id: Option<String>,
     path: String,
     request: ConvertRequest,
 ) -> Result<JobResult, ErrorDetails> {
@@ -87,12 +97,20 @@ pub async fn start_conversion(
     let probe = probe_media_file(&ffprobe_bin, &file_path).map_err(|e| e.to_user_friendly())?;
     let plan = plan_conversion(&probe, &request).map_err(|e| e.to_user_friendly())?;
 
-    let job_id = format!("job_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
+    let job_id = job_id.unwrap_or_else(|| {
+        format!(
+            "job_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        )
+    });
     let job_manager = state.job_manager.clone();
     let original_size = probe.size_bytes;
 
     tokio::task::spawn_blocking(move || {
-        job_manager.run_job(app, job_id, &ffmpeg_bin, &plan, original_size)
+        job_manager.run_job(app, job_id, &ffmpeg_bin, Some(&ffprobe_bin), &plan, original_size)
     })
     .await
     .map_err(|e| ErrorDetails {
@@ -107,6 +125,7 @@ pub async fn start_conversion(
 pub async fn start_audio_extraction(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
+    job_id: Option<String>,
     path: String,
     request: ExtractAudioRequest,
 ) -> Result<JobResult, ErrorDetails> {
@@ -117,12 +136,20 @@ pub async fn start_audio_extraction(
     let probe = probe_media_file(&ffprobe_bin, &file_path).map_err(|e| e.to_user_friendly())?;
     let plan = plan_audio_extraction(&probe, &request).map_err(|e| e.to_user_friendly())?;
 
-    let job_id = format!("job_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
+    let job_id = job_id.unwrap_or_else(|| {
+        format!(
+            "job_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        )
+    });
     let job_manager = state.job_manager.clone();
     let original_size = probe.size_bytes;
 
     tokio::task::spawn_blocking(move || {
-        job_manager.run_job(app, job_id, &ffmpeg_bin, &plan, original_size)
+        job_manager.run_job(app, job_id, &ffmpeg_bin, Some(&ffprobe_bin), &plan, original_size)
     })
     .await
     .map_err(|e| ErrorDetails {
@@ -137,6 +164,7 @@ pub async fn start_audio_extraction(
 pub async fn start_trim(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
+    job_id: Option<String>,
     path: String,
     request: TrimRequest,
 ) -> Result<JobResult, ErrorDetails> {
@@ -147,12 +175,20 @@ pub async fn start_trim(
     let probe = probe_media_file(&ffprobe_bin, &file_path).map_err(|e| e.to_user_friendly())?;
     let plan = plan_trim(&probe, &request).map_err(|e| e.to_user_friendly())?;
 
-    let job_id = format!("job_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
+    let job_id = job_id.unwrap_or_else(|| {
+        format!(
+            "job_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        )
+    });
     let job_manager = state.job_manager.clone();
     let original_size = probe.size_bytes;
 
     tokio::task::spawn_blocking(move || {
-        job_manager.run_job(app, job_id, &ffmpeg_bin, &plan, original_size)
+        job_manager.run_job(app, job_id, &ffmpeg_bin, Some(&ffprobe_bin), &plan, original_size)
     })
     .await
     .map_err(|e| ErrorDetails {
@@ -210,6 +246,56 @@ pub async fn show_in_folder(path: String) -> Result<(), ErrorDetails> {
             .map_err(|e| ErrorDetails {
                 title: "Failed to open folder".to_string(),
                 message: "Could not reveal file in Finder.".to_string(),
+                technical_details: Some(e.to_string()),
+            })?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_file_path(path: String) -> Result<(), ErrorDetails> {
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err(ErrorDetails {
+            title: "File not found".to_string(),
+            message: "The requested file does not exist on disk.".to_string(),
+            technical_details: Some(path),
+        });
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", &path])
+            .spawn()
+            .map_err(|e| ErrorDetails {
+                title: "Failed to open file".to_string(),
+                message: "Could not open file in default media player.".to_string(),
+                technical_details: Some(e.to_string()),
+            })?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| ErrorDetails {
+                title: "Failed to open file".to_string(),
+                message: "Could not open file in default media player.".to_string(),
+                technical_details: Some(e.to_string()),
+            })?;
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| ErrorDetails {
+                title: "Failed to open file".to_string(),
+                message: "Could not open file in default media player.".to_string(),
                 technical_details: Some(e.to_string()),
             })?;
     }

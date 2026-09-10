@@ -40,9 +40,6 @@ jobs:
         with:
           ffmpeg-version: release
 
-      - name: Install FFmpeg & FFprobe (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ffmpeg
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

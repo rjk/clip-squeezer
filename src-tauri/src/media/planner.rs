@@ -37,6 +37,7 @@ pub enum ConvertFormat {
     Mov,
     Mkv,
     Webm,
+    Gif,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -290,6 +291,19 @@ pub fn plan_conversion(probe: &MediaInfo, req: &ConvertRequest) -> Result<MediaP
                 false,
             )
         }
+        ConvertFormat::Gif => (
+            "gif",
+            false,
+            VideoStrategy::Transcode {
+                codec: "gif".to_string(),
+                crf: 0,
+                preset: "".to_string(),
+                pixel_format: "".to_string(),
+            },
+            false,
+            AudioStrategy::Omit,
+            false,
+        ),
     };
 
     let video_strategy = if can_copy_v {
@@ -298,7 +312,7 @@ pub fn plan_conversion(probe: &MediaInfo, req: &ConvertRequest) -> Result<MediaP
         fallback_v
     };
 
-    let audio_strategy = if !probe.has_audio {
+    let audio_strategy = if req.format == ConvertFormat::Gif || !probe.has_audio {
         AudioStrategy::Omit
     } else if can_copy_a {
         AudioStrategy::Copy
@@ -469,7 +483,9 @@ pub fn check_conversion_plan(probe: &MediaInfo, format: ConvertFormat) -> Conver
             };
             let ext = p.output_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_string();
 
-            let message = if p.is_remux {
+            let message = if req.format == ConvertFormat::Gif {
+                "Made for short clips\nGIFs loop automatically and are easy to share, but can be much larger than MP4 or WebM.".to_string()
+            } else if p.is_remux {
                 "No quality change — This conversion can be completed without re-encoding the video.".to_string()
             } else {
                 "The video needs converting — This will take longer because the video format needs to change.".to_string()
@@ -523,17 +539,22 @@ pub fn build_ffmpeg_args(plan: &MediaPlan) -> Vec<String> {
         VideoStrategy::Transcode { codec, crf, preset, pixel_format } => {
             args.push("-c:v".to_string());
             args.push(codec.clone());
-            args.push("-crf".to_string());
-            args.push(crf.to_string());
-            if codec == "libvpx-vp9" {
-                args.push("-b:v".to_string());
+            if codec == "gif" {
+                args.push("-loop".to_string());
                 args.push("0".to_string());
             } else {
-                args.push("-preset".to_string());
-                args.push(preset.clone());
+                args.push("-crf".to_string());
+                args.push(crf.to_string());
+                if codec == "libvpx-vp9" {
+                    args.push("-b:v".to_string());
+                    args.push("0".to_string());
+                } else {
+                    args.push("-preset".to_string());
+                    args.push(preset.clone());
+                }
+                args.push("-pix_fmt".to_string());
+                args.push(pixel_format.clone());
             }
-            args.push("-pix_fmt".to_string());
-            args.push(pixel_format.clone());
         }
         VideoStrategy::Omit => {
             args.push("-vn".to_string());
@@ -799,5 +820,34 @@ mod tests {
 
         let out_of_bounds = TrimRequest { start_seconds: 10.0, end_seconds: 90.0 };
         assert!(plan_trim(&probe, &out_of_bounds).is_err());
+    }
+
+    #[test]
+    fn test_plan_conversion_to_gif() {
+        let probe = sample_4k_probe();
+        let req = ConvertRequest { format: ConvertFormat::Gif };
+        let plan = plan_conversion(&probe, &req).expect("Gif plan");
+
+        assert_eq!(plan.video_strategy, VideoStrategy::Transcode {
+            codec: "gif".to_string(),
+            crf: 0,
+            preset: "".to_string(),
+            pixel_format: "".to_string(),
+        });
+        assert_eq!(plan.audio_strategy, AudioStrategy::Omit);
+        assert_eq!(plan.output_path, PathBuf::from("C:\\videos\\nature-converted.gif"));
+        assert!(!plan.is_remux);
+
+        let args = build_ffmpeg_args(&plan);
+        assert!(args.contains(&"-c:v".to_string()));
+        assert!(args.contains(&"gif".to_string()));
+        assert!(args.contains(&"-loop".to_string()));
+        assert!(args.contains(&"0".to_string()));
+        assert!(args.contains(&"-an".to_string()));
+
+        let summary = check_conversion_plan(&probe, ConvertFormat::Gif);
+        assert!(!summary.is_remux);
+        assert_eq!(summary.target_ext, "gif");
+        assert!(summary.message.contains("Made for short clips"));
     }
 }

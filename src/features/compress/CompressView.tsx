@@ -10,79 +10,146 @@ import { Icon } from '../../components/Icon';
 
 interface CompressViewProps {
   mediaInfo: MediaInfo;
+  initialRequest?: CompressRequest | null;
   onStartCompress: (request: CompressRequest) => void;
+  onChange?: (request: CompressRequest) => void;
   onBack: () => void;
 }
 
 export const CompressView: React.FC<CompressViewProps> = ({
   mediaInfo,
+  initialRequest,
   onStartCompress,
+  onChange,
   onBack,
 }) => {
-  const [quality, setQuality] = useState<CompressQuality>('Balanced');
-  const [resolution, setResolution] = useState<CompressResolution>('KeepOriginal');
-  const [compatibility, setCompatibility] = useState<CompressCompatibility>('Wide');
+  const [quality, setQuality] = useState<CompressQuality>(
+    () => initialRequest?.quality || 'Balanced'
+  );
+  const [resolution, setResolution] = useState<CompressResolution>(
+    () => initialRequest?.resolution || 'KeepOriginal'
+  );
+  const [compatibility, setCompatibility] = useState<CompressCompatibility>(
+    () => initialRequest?.compatibility || 'Wide'
+  );
+
+  const handleQualityChange = (newQuality: CompressQuality) => {
+    setQuality(newQuality);
+    onChange?.({ quality: newQuality, resolution, compatibility });
+  };
+
+  const handleResolutionChange = (newResolution: CompressResolution) => {
+    setResolution(newResolution);
+    onChange?.({ quality, resolution: newResolution, compatibility });
+  };
+
+  const handleCompatibilityChange = (newCompatibility: CompressCompatibility) => {
+    setCompatibility(newCompatibility);
+    onChange?.({ quality, resolution, compatibility: newCompatibility });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onStartCompress({
+    const req: CompressRequest = {
       quality,
       resolution,
       compatibility,
-    });
+    };
+    onChange?.(req);
+    onStartCompress(req);
   };
 
-  const vStream = mediaInfo.video_streams[0];
-  const minDim = vStream ? Math.min(vStream.width, vStream.height) : 1080;
+  const vStream = mediaInfo.video_streams?.[0];
+  const origW = vStream?.width || 1920;
+  const origH = vStream?.height || 1080;
+  const minDim = Math.min(origW, origH);
 
   // Only show downscale target buttons if original resolution is strictly larger than that target
   const show1080p = minDim > 1080;
   const show720p = minDim > 720;
 
-  // File size estimation heuristic based on CRF targets and resolution
-  const getEstimatedSize = (): string => {
-    const duration = Math.max(1, mediaInfo.duration_seconds);
-    const targetHeight =
-      resolution === 'P720'
-        ? 720
-        : resolution === 'P1080'
-        ? 1080
-        : minDim;
+  // File size estimation heuristic based on CRF targets, resolution scaling, and original bitrate
+  const calculateEstimateBytes = (
+    q: CompressQuality,
+    r: CompressResolution,
+    c: CompressCompatibility
+  ): number => {
+    const duration = Math.max(1, mediaInfo.duration_seconds || 1);
+    const inputBytes = Math.max(1024, mediaInfo.size_bytes || 1024);
 
-    let resFactor = 1.0;
-    if (targetHeight <= 480) resFactor = 0.35;
-    else if (targetHeight <= 720) resFactor = 0.55;
-    else if (targetHeight <= 1080) resFactor = 1.0;
-    else if (targetHeight <= 1440) resFactor = 1.7;
-    else resFactor = 2.8;
+    let targetH = minDim;
+    if (r === 'P1080' && minDim > 1080) targetH = 1080;
+    if (r === 'P720' && minDim > 720) targetH = 720;
 
-    let baseVideoKbps = 2200;
-    if (compatibility === 'Wide') {
-      if (quality === 'BestQuality') baseVideoKbps = 4500;
-      else if (quality === 'Balanced') baseVideoKbps = 2200;
-      else baseVideoKbps = 1100;
+    // Scale factor based on resolution downscaling relative to original
+    const resReductionFactor = Math.pow(targetH / minDim, 1.3);
+
+    // Target video bitrates at 1080p (kbps) and maximum ratio of original size
+    let crfTarget1080Kbps = 2200;
+    let maxRatioOfOriginal = 0.60;
+
+    if (c === 'Wide') {
+      if (q === 'BestQuality') {
+        crfTarget1080Kbps = 4200;
+        maxRatioOfOriginal = 0.85;
+      } else if (q === 'Balanced') {
+        crfTarget1080Kbps = 2200;
+        maxRatioOfOriginal = 0.60;
+      } else {
+        crfTarget1080Kbps = 1100;
+        maxRatioOfOriginal = 0.35;
+      }
     } else {
-      // H.265 (HEVC)
-      if (quality === 'BestQuality') baseVideoKbps = 2800;
-      else if (quality === 'Balanced') baseVideoKbps = 1400;
-      else baseVideoKbps = 750;
+      // H.265 (HEVC) produces ~35-40% smaller files than H.264
+      if (q === 'BestQuality') {
+        crfTarget1080Kbps = 2700;
+        maxRatioOfOriginal = 0.60;
+      } else if (q === 'Balanced') {
+        crfTarget1080Kbps = 1400;
+        maxRatioOfOriginal = 0.40;
+      } else {
+        crfTarget1080Kbps = 750;
+        maxRatioOfOriginal = 0.22;
+      }
     }
 
-    const totalKbps = baseVideoKbps * resFactor + 128;
-    const estBytes = (totalKbps * 1000 * duration) / 8;
-    const finalBytes = Math.min(estBytes, mediaInfo.size_bytes * 0.95);
+    // Scale bitrate target according to target resolution relative to 1080p
+    const resRatioTo1080 = Math.pow(targetH / 1080, 1.3);
+    const targetVideoBitrateKbps = crfTarget1080Kbps * resRatioTo1080;
+    const targetAudioBitrateKbps = mediaInfo.has_audio ? 128 : 0;
+    const targetTotalBitrateKbps = targetVideoBitrateKbps + targetAudioBitrateKbps;
 
-    if (finalBytes < 1024 * 1024) {
-      return `${Math.round(finalBytes / 1024)} KB`;
-    } else if (finalBytes < 1024 * 1024 * 1024) {
-      const mb = finalBytes / (1024 * 1024);
+    const bitrateEstBytes = (targetTotalBitrateKbps * 1000 * duration) / 8;
+    const ratioEstBytes = inputBytes * maxRatioOfOriginal * resReductionFactor;
+
+    // Use the lower of bitrate estimate and ratio estimate so low-bitrate input doesn't inflate
+    let est = Math.min(bitrateEstBytes, ratioEstBytes);
+
+    // Strict ceiling so quality levels never collapse into identical numbers
+    const qualityCapFactor = q === 'BestQuality' ? 0.90 : q === 'Balanced' ? 0.72 : 0.48;
+    const maxCap = inputBytes * qualityCapFactor * resReductionFactor;
+    est = Math.min(est, maxCap);
+
+    // Floor to prevent tiny or zero values
+    const minFloor = Math.max(30 * 1024, inputBytes * 0.03);
+    return Math.max(est, minFloor);
+  };
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024 * 1024) {
+      return `${Math.round(bytes / 1024)} KB`;
+    } else if (bytes < 1024 * 1024 * 1024) {
+      const mb = bytes / (1024 * 1024);
       return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB`;
     } else {
-      return `${(finalBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
     }
   };
 
-  const estimatedSizeLabel = getEstimatedSize();
+  const currentEstimateBytes = calculateEstimateBytes(quality, resolution, compatibility);
+  const savingsPercent = Math.round(
+    ((mediaInfo.size_bytes - currentEstimateBytes) / mediaInfo.size_bytes) * 100
+  );
 
   return (
     <div className="config-card">
@@ -101,21 +168,21 @@ export const CompressView: React.FC<CompressViewProps> = ({
             <button
               type="button"
               className={`segmented-btn ${quality === 'BestQuality' ? 'active' : ''}`}
-              onClick={() => setQuality('BestQuality')}
+              onClick={() => handleQualityChange('BestQuality')}
             >
               Best quality
             </button>
             <button
               type="button"
               className={`segmented-btn ${quality === 'Balanced' ? 'active' : ''}`}
-              onClick={() => setQuality('Balanced')}
+              onClick={() => handleQualityChange('Balanced')}
             >
               Balanced — Recommended
             </button>
             <button
               type="button"
               className={`segmented-btn ${quality === 'SmallestFile' ? 'active' : ''}`}
-              onClick={() => setQuality('SmallestFile')}
+              onClick={() => handleQualityChange('SmallestFile')}
             >
               Smallest file
             </button>
@@ -129,7 +196,7 @@ export const CompressView: React.FC<CompressViewProps> = ({
             <button
               type="button"
               className={`segmented-btn ${resolution === 'KeepOriginal' ? 'active' : ''}`}
-              onClick={() => setResolution('KeepOriginal')}
+              onClick={() => handleResolutionChange('KeepOriginal')}
             >
               Keep original ({mediaInfo.friendly_resolution})
             </button>
@@ -137,7 +204,7 @@ export const CompressView: React.FC<CompressViewProps> = ({
               <button
                 type="button"
                 className={`segmented-btn ${resolution === 'P1080' ? 'active' : ''}`}
-                onClick={() => setResolution('P1080')}
+                onClick={() => handleResolutionChange('P1080')}
               >
                 1080p
               </button>
@@ -146,7 +213,7 @@ export const CompressView: React.FC<CompressViewProps> = ({
               <button
                 type="button"
                 className={`segmented-btn ${resolution === 'P720' ? 'active' : ''}`}
-                onClick={() => setResolution('P720')}
+                onClick={() => handleResolutionChange('P720')}
               >
                 720p
               </button>
@@ -160,12 +227,12 @@ export const CompressView: React.FC<CompressViewProps> = ({
           <div className="option-cards">
             <div
               className={`option-card ${compatibility === 'Wide' ? 'active' : ''}`}
-              onClick={() => setCompatibility('Wide')}
+              onClick={() => handleCompatibilityChange('Wide')}
               tabIndex={0}
               role="button"
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="option-title">Works almost everywhere — Recommended</div>
+                <div className="option-title">Works everywhere — Recommended</div>
                 <span
                   title="Uses the H.264 (AVC) encoder. Universally supported on virtually all computers, smartphones, TVs, and web browsers made since 2010."
                   style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', cursor: 'help' }}
@@ -174,27 +241,27 @@ export const CompressView: React.FC<CompressViewProps> = ({
                 </span>
               </div>
               <div className="option-desc">
-                Uses H.264 video encoding. Best choice if you will share the file with other people, older devices, or chat apps.
+                Uses H.264 encoding. Best choice to work on all devices and apps.
               </div>
             </div>
 
             <div
               className={`option-card ${compatibility === 'SmallerFile' ? 'active' : ''}`}
-              onClick={() => setCompatibility('SmallerFile')}
+              onClick={() => handleCompatibilityChange('SmallerFile')}
               tabIndex={0}
               role="button"
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div className="option-title">Smaller file</div>
                 <span
-                  title="Uses the H.265 (HEVC) encoder. Compresses up to 40% smaller at identical visual quality. Supported on modern devices (iPhone iOS 11+, Android 5+, Windows 10/11, macOS, modern smart TVs)."
+                  title="Uses H.265 (HEVC) encoding. Compresses up to 40% smaller at identical visual quality. Supported on modern devices (iPhone iOS 11+, Android 5+, Windows 10/11, macOS, modern smart TVs)."
                   style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', cursor: 'help' }}
                 >
                   <Icon name="info" size={16} />
                 </span>
               </div>
               <div className="option-desc">
-                Uses H.265 (HEVC) encoding for extra space savings. Plays on modern smartphones and computers (generally 2016 onwards).
+                Uses H.265 (HEVC) encoding. Plays on modern devices, generally from 2016 onwards.
               </div>
             </div>
           </div>
@@ -203,8 +270,13 @@ export const CompressView: React.FC<CompressViewProps> = ({
         {/* Reassurance Notice & Submit */}
         <div className="config-actions">
           <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '600' }}>
-              New file size: around {estimatedSizeLabel}
+            <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: '600' }}>
+              New file size: around {formatBytes(currentEstimateBytes)}
+              {savingsPercent > 0 && (
+                <span style={{ marginLeft: '6px', color: 'var(--primary)', fontWeight: '600' }}>
+                  ({savingsPercent}% smaller)
+                </span>
+              )}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
               Your original file is never modified.

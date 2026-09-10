@@ -8,19 +8,31 @@ import { Icon } from '../../components/Icon';
 
 interface ExtractAudioViewProps {
   mediaInfo: MediaInfo;
+  initialRequest?: ExtractAudioRequest | null;
   onStartExtract: (request: ExtractAudioRequest) => void;
+  onChange?: (request: ExtractAudioRequest) => void;
   onBack: () => void;
 }
 
 export const ExtractAudioView: React.FC<ExtractAudioViewProps> = ({
   mediaInfo,
+  initialRequest,
   onStartExtract,
+  onChange,
   onBack,
 }) => {
-  const [mode, setMode] = useState<ExtractAudioMode>('OriginalQuality');
+  const [mode, setMode] = useState<ExtractAudioMode>(
+    () => initialRequest?.mode || 'OriginalQuality'
+  );
+
+  const handleModeSelect = (newMode: ExtractAudioMode) => {
+    setMode(newMode);
+    onChange?.({ mode: newMode });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    onChange?.({ mode });
     onStartExtract({ mode });
   };
 
@@ -108,7 +120,7 @@ export const ExtractAudioView: React.FC<ExtractAudioViewProps> = ({
               <div
                 key={opt.id}
                 className={`option-card ${mode === opt.id ? 'active' : ''}`}
-                onClick={() => setMode(opt.id)}
+                onClick={() => handleModeSelect(opt.id)}
                 tabIndex={0}
                 role="button"
               >

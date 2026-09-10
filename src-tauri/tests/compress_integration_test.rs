@@ -1,3 +1,5 @@
+mod common;
+use common::find_test_binary;
 use std::fs;
 use std::path::PathBuf;
 use clip_squeezer_lib::media::planner::{plan_compression, CompressCompatibility, CompressQuality, CompressRequest, CompressResolution};
@@ -7,8 +9,8 @@ use clip_squeezer_lib::media::probe::probe_media_file;
 fn test_compression_end_to_end_on_fixture() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = manifest_dir.parent().unwrap().join("tests").join("fixtures").join("test_1080p.mp4");
-    let ffprobe_bin = manifest_dir.join("binaries").join("ffprobe-x86_64-pc-windows-msvc.exe");
-    let ffmpeg_bin = manifest_dir.join("binaries").join("ffmpeg-x86_64-pc-windows-msvc.exe");
+    let ffprobe_bin = find_test_binary("ffprobe");
+    let ffmpeg_bin = find_test_binary("ffmpeg");
 
     assert!(fixture_path.exists());
     assert!(ffprobe_bin.exists());

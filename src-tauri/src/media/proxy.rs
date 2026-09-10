@@ -42,14 +42,18 @@ pub fn generate_preview_proxy_file(
     let hash_key = hasher.finish();
     let proxy_filename = format!("proxy_{:x}.mp4", hash_key);
     let proxy_path = proxy_dir.join(&proxy_filename);
+    let part_path = proxy_dir.join(format!("proxy_{:x}.part.mp4", hash_key));
 
     if proxy_path.exists() {
         if let Ok(meta) = std::fs::metadata(&proxy_path) {
-            if meta.len() > 0 {
+            if meta.len() > 1024 {
                 return Ok(proxy_path);
             }
         }
+        let _ = std::fs::remove_file(&proxy_path);
     }
+
+    let _ = std::fs::remove_file(&part_path);
 
     let mut cmd = Command::new(ffmpeg_bin);
     cmd.args(&[
@@ -60,12 +64,20 @@ pub fn generate_preview_proxy_file(
     ])
     .arg(source_path)
     .args(&[
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a?",
         "-vf",
-        "scale=-2:480",
+        "scale=-2:360",
         "-c:v",
         "libx264",
         "-preset",
-        "veryfast",
+        "ultrafast",
+        "-tune",
+        "fastdecode",
+        "-pix_fmt",
+        "yuv420p",
         "-crf",
         "28",
         "-c:a",
@@ -75,7 +87,7 @@ pub fn generate_preview_proxy_file(
         "-movflags",
         "+faststart",
     ])
-    .arg(&proxy_path);
+    .arg(&part_path);
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
@@ -86,6 +98,7 @@ pub fn generate_preview_proxy_file(
     })?;
 
     if !output.status.success() {
+        let _ = std::fs::remove_file(&part_path);
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         return Err(MediaError::ProcessFailed {
             exit_code: output.status.code(),
@@ -93,9 +106,11 @@ pub fn generate_preview_proxy_file(
         });
     }
 
-    if !proxy_path.exists() {
+    if !part_path.exists() {
         return Err(MediaError::OutputValidationFailed("Proxy file was not created".to_string()));
     }
+
+    std::fs::rename(&part_path, &proxy_path)?;
 
     Ok(proxy_path)
 }

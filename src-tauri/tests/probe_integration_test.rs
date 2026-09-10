@@ -1,3 +1,5 @@
+mod common;
+use common::find_test_binary;
 use std::path::PathBuf;
 use clip_squeezer_lib::media::probe::probe_media_file;
 
@@ -7,7 +9,7 @@ fn test_probe_real_mp4_fixture() {
     let fixture_path = manifest_dir.parent().unwrap().join("tests").join("fixtures").join("test_1080p.mp4");
     
     // Check sidecar binary
-    let ffprobe_bin = manifest_dir.join("binaries").join("ffprobe-x86_64-pc-windows-msvc.exe");
+    let ffprobe_bin = find_test_binary("ffprobe");
     assert!(ffprobe_bin.exists(), "ffprobe binary must exist at {:?}", ffprobe_bin);
     assert!(fixture_path.exists(), "fixture must exist at {:?}", fixture_path);
 
