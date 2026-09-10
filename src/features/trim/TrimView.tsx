@@ -109,10 +109,13 @@ export const TrimView: React.FC<TrimViewProps> = ({
     }
   }, [mediaInfo.path, directlyPlayable]);
 
-  // Proactively generate preview proxy for reliable playback across formats
+  // Only generate preview proxy upfront for non-directly-playable containers (e.g. MOV, MKV)
+  // For standard MP4 and WebM, play directly without background proxy transcoding
   useEffect(() => {
-    handleLoadProxy();
-  }, [handleLoadProxy]);
+    if (!directlyPlayable) {
+      handleLoadProxy();
+    }
+  }, [directlyPlayable, handleLoadProxy]);
 
   const handleVideoError = () => {
     if (!isPreparingProxy) {
@@ -122,18 +125,26 @@ export const TrimView: React.FC<TrimViewProps> = ({
 
   const togglePlay = useCallback(() => {
     if (!videoRef.current) return;
-    if (isPlaying) {
+    const isPaused = videoRef.current.paused;
+    if (!isPaused) {
       videoRef.current.pause();
+      setIsPlaying(false);
     } else {
       if (videoRef.current.currentTime >= endSeconds - 0.05) {
         videoRef.current.currentTime = startSeconds;
         setCurrentTime(startSeconds);
       }
-      videoRef.current.play().catch((err) => {
-        console.error('Playback error:', err);
-      });
+      videoRef.current
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch((err) => {
+          console.error('Playback error:', err);
+          setIsPlaying(false);
+        });
     }
-  }, [isPlaying, startSeconds, endSeconds]);
+  }, [startSeconds, endSeconds]);
 
   const pauseVideo = useCallback(() => {
     if (!videoRef.current) return;
@@ -431,7 +442,6 @@ export const TrimView: React.FC<TrimViewProps> = ({
         {videoSrc ? (
           <>
             <video
-              key={videoSrc}
               ref={videoRef}
               src={videoSrc}
               className="trim-preview-video"
@@ -439,6 +449,13 @@ export const TrimView: React.FC<TrimViewProps> = ({
               playsInline
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
+              onEnded={() => {
+                setIsPlaying(false);
+                if (videoRef.current) {
+                  videoRef.current.currentTime = startSeconds;
+                  setCurrentTime(startSeconds);
+                }
+              }}
               onTimeUpdate={handleTimeUpdate}
               onError={handleVideoError}
               onLoadedData={() => {
@@ -452,20 +469,19 @@ export const TrimView: React.FC<TrimViewProps> = ({
               }}
               onClick={togglePlay}
             />
-            {isPreparingProxy ? (
-              <div className="trim-preview-overlay">
-                <Icon name="loading" className="spinner" size={24} />
-                <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Optimizing preview...</span>
+            <button
+              type="button"
+              className="trim-play-overlay-btn"
+              onClick={togglePlay}
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? <Icon name="pause" size={18} /> : <Icon name="play" size={18} style={{ marginLeft: '2px' }} />}
+            </button>
+            {isPreparingProxy && (
+              <div className="trim-preview-badge">
+                <Icon name="loading" className="spinner" size={13} />
+                <span>Optimizing preview...</span>
               </div>
-            ) : (
-              <button
-                type="button"
-                className="trim-play-overlay-btn"
-                onClick={togglePlay}
-                aria-label={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? <Icon name="pause" size={18} /> : <Icon name="play" size={18} style={{ marginLeft: '2px' }} />}
-              </button>
             )}
           </>
         ) : (
