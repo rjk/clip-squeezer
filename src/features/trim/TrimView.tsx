@@ -39,9 +39,19 @@ export const TrimView: React.FC<TrimViewProps> = ({
     }
     return 0;
   });
+  const isDirectlyPlayable = (filePath: string) => {
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    return ext === 'mp4' || ext === 'webm';
+  };
+
+  const directlyPlayable = isDirectlyPlayable(mediaInfo.path);
+  const [videoSrc, setVideoSrc] = useState<string | null>(() => {
+    // Only load directly if it is a standard web-playable container (mp4, webm).
+    // For MOV/MKV/AVI/etc., wait for the clean mp4 proxy to avoid black screen decoder failures.
+    return directlyPlayable ? convertFileSrc(mediaInfo.path) : null;
+  });
   const [isPlaying, setIsPlaying] = useState(false);
-  const [videoSrc, setVideoSrc] = useState(() => convertFileSrc(mediaInfo.path));
-  const [isPreparingProxy, setIsPreparingProxy] = useState(false);
+  const [isPreparingProxy, setIsPreparingProxy] = useState(() => !directlyPlayable);
   const [proxyError, setProxyError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -58,8 +68,12 @@ export const TrimView: React.FC<TrimViewProps> = ({
     if (rafIdRef.current === null) {
       rafIdRef.current = requestAnimationFrame(() => {
         rafIdRef.current = null;
-        if (videoRef.current && pendingSeekRef.current !== null) {
-          videoRef.current.currentTime = pendingSeekRef.current;
+        if (videoRef.current && videoRef.current.readyState >= 1 && pendingSeekRef.current !== null) {
+          try {
+            videoRef.current.currentTime = pendingSeekRef.current;
+          } catch (err) {
+            console.error('Seek error:', err);
+          }
           pendingSeekRef.current = null;
         }
       });
@@ -85,26 +99,20 @@ export const TrimView: React.FC<TrimViewProps> = ({
       setVideoSrc(newSrc);
     } catch (err) {
       console.error('Proxy preparation failed:', err);
-      setProxyError('Could not generate video preview, but you can still trim using timestamps.');
+      if (directlyPlayable) {
+        setVideoSrc(convertFileSrc(mediaInfo.path));
+      } else {
+        setProxyError('Could not generate video preview, but you can still trim using timestamps.');
+      }
     } finally {
       setIsPreparingProxy(false);
     }
-  }, [mediaInfo.path]);
+  }, [mediaInfo.path, directlyPlayable]);
 
   // Proactively generate preview proxy for reliable playback across formats
   useEffect(() => {
     handleLoadProxy();
   }, [handleLoadProxy]);
-
-  // When videoSrc updates or element mounts, ensure video loads metadata and shows initial frame
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.load();
-      if (currentTime > 0) {
-        videoRef.current.currentTime = currentTime;
-      }
-    }
-  }, [videoSrc]);
 
   const handleVideoError = () => {
     if (!isPreparingProxy) {
@@ -420,58 +428,60 @@ export const TrimView: React.FC<TrimViewProps> = ({
 
       {/* Video Preview */}
       <div className="trim-preview-container">
-        <video
-          key={videoSrc}
-          ref={videoRef}
-          src={videoSrc}
-          className="trim-preview-video"
-          preload="auto"
-          playsInline
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onTimeUpdate={handleTimeUpdate}
-          onError={handleVideoError}
-          onLoadedData={() => {
-            if (videoRef.current) {
-              videoRef.current.currentTime = Math.max(0.001, startSeconds);
-            }
-          }}
-          onLoadedMetadata={() => {
-            if (videoRef.current) {
-              videoRef.current.currentTime = Math.max(0.001, startSeconds);
-            }
-          }}
-          onClick={togglePlay}
-        />
-        {isPreparingProxy ? (
-          <div
-            style={{
-              position: 'absolute',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              color: '#ffffff',
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              padding: '14px 22px',
-              borderRadius: '8px',
-              pointerEvents: 'none',
-              zIndex: 5,
-            }}
-          >
-            <Icon name="loading" className="spinner" size={24} />
-            <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Generating video preview...</span>
-          </div>
+        {videoSrc ? (
+          <>
+            <video
+              key={videoSrc}
+              ref={videoRef}
+              src={videoSrc}
+              className="trim-preview-video"
+              preload="auto"
+              playsInline
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onTimeUpdate={handleTimeUpdate}
+              onError={handleVideoError}
+              onLoadedData={() => {
+                if (videoRef.current) {
+                  if (startSeconds > 0) {
+                    videoRef.current.currentTime = startSeconds;
+                  } else {
+                    videoRef.current.currentTime = 0.001;
+                  }
+                }
+              }}
+              onClick={togglePlay}
+            />
+            {isPreparingProxy ? (
+              <div className="trim-preview-overlay">
+                <Icon name="loading" className="spinner" size={24} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Optimizing preview...</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="trim-play-overlay-btn"
+                onClick={togglePlay}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? <Icon name="pause" size={18} /> : <Icon name="play" size={18} style={{ marginLeft: '2px' }} />}
+              </button>
+            )}
+          </>
         ) : (
-          <button
-            type="button"
-            className="trim-play-overlay-btn"
-            onClick={togglePlay}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? <Icon name="pause" size={18} /> : <Icon name="play" size={18} style={{ marginLeft: '2px' }} />}
-          </button>
+          <div className="trim-preview-loading">
+            {proxyError ? (
+              <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
+                <Icon name="warning" size={32} style={{ color: 'var(--warning)', marginBottom: '8px' }} />
+                <p style={{ fontSize: '0.9rem' }}>{proxyError}</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <Icon name="loading" className="spinner" size={32} />
+                <span style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 500 }}>Generating video preview...</span>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

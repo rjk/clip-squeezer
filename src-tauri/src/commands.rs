@@ -12,12 +12,14 @@ use crate::media::process::{JobManager, JobResult};
 
 pub struct AppState {
     pub job_manager: JobManager,
+    pub proxy_mutex: tokio::sync::Mutex<()>,
 }
 
 impl AppState {
     pub fn new() -> Self {
         Self {
             job_manager: JobManager::new(),
+            proxy_mutex: tokio::sync::Mutex::new(()),
         }
     }
 }
@@ -304,8 +306,42 @@ pub async fn open_file_path(path: String) -> Result<(), ErrorDetails> {
 }
 
 #[tauri::command]
-pub async fn ensure_preview_proxy(app: AppHandle, path: String) -> Result<String, ErrorDetails> {
+pub async fn ensure_preview_proxy(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+    path: String,
+) -> Result<String, ErrorDetails> {
     let file_path = PathBuf::from(&path);
+
+    // Fast check: return immediately if stable cached proxy already exists
+    if let Ok(proxy_dir) = crate::media::proxy::get_proxy_cache_dir(&app) {
+        let hash_key = crate::media::proxy::compute_stable_hash(&file_path);
+        let proxy_path = proxy_dir.join(format!("proxy_{:016x}.mp4", hash_key));
+        if proxy_path.exists() {
+            if let Ok(meta) = std::fs::metadata(&proxy_path) {
+                if meta.len() > 1024 {
+                    return Ok(proxy_path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
+    // Acquire lock so concurrent requests serialize rather than generating concurrently
+    let _guard = state.proxy_mutex.lock().await;
+
+    // Double check if another worker completed it while waiting for lock
+    if let Ok(proxy_dir) = crate::media::proxy::get_proxy_cache_dir(&app) {
+        let hash_key = crate::media::proxy::compute_stable_hash(&file_path);
+        let proxy_path = proxy_dir.join(format!("proxy_{:016x}.mp4", hash_key));
+        if proxy_path.exists() {
+            if let Ok(meta) = std::fs::metadata(&proxy_path) {
+                if meta.len() > 1024 {
+                    return Ok(proxy_path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
     let ffmpeg_bin = resolve_binary(&app, "ffmpeg").map_err(|e| e.to_user_friendly())?;
     let app_clone = app.clone();
 
