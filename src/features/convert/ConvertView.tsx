@@ -148,29 +148,6 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
 
         {/* Plain language remux/transcode status indicator - always mounted with stable height to prevent layout shift */}
         <div
-          style={{
-            padding: '14px 18px',
-            borderRadius: '8px',
-            backgroundColor:
-              format === 'Gif'
-                ? 'var(--bg-secondary)'
-                : currentSummary?.is_remux
-                ? 'var(--success-bg)'
-                : 'var(--bg-secondary)',
-            border: `1px solid ${
-              format === 'Gif'
-                ? 'var(--border)'
-                : currentSummary?.is_remux
-                ? 'var(--success)'
-                : 'var(--border)'
-            }`,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '12px',
-            minHeight: '74px',
-            boxSizing: 'border-box',
-            transition: 'background-color 0.15s ease, border-color 0.15s ease',
-          }}
           className={`convert-info-box ${currentSummary?.is_remux && format !== 'Gif' ? 'fast-remux' : ''}`}
         >
           {format === 'Gif' ? (
