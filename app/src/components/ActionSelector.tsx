@@ -33,7 +33,7 @@ export const ActionSelector: React.FC<ActionSelectorProps> = ({ mediaInfo, onSel
           </div>
           <div className="action-text">
             <span className="action-title">Convert</span>
-            <span className="action-desc">Turn into MP4, MOV, MKV, or WebM</span>
+            <span className="action-desc">Turn into MP4, MOV, MKV, WebM, or GIF</span>
           </div>
         </button>
 

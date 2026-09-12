@@ -782,7 +782,7 @@ button {
 /* Footer & About Modal */
 .app-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   padding: 12px 24px;
 }
 

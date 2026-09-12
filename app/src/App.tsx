@@ -479,10 +479,10 @@ export function App() {
       {!mediaInfo && (
         <footer className="app-footer" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <button className="about-link" onClick={() => setShowHistory(true)}>
-            <Icon name="history" size={16} /> History
+            History
           </button>
           <button className="about-link" onClick={() => setShowAbout(true)}>
-            <Icon name="info" size={16} /> About
+            About
           </button>
         </footer>
       )}

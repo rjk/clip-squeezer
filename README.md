@@ -8,26 +8,28 @@ Available for **Windows** and **macOS**. Free and open source.
 
 > **Download Clip Squeezer:** [Latest release](https://github.com/rjk/clip-squeezer/releases/latest)
 
-<!-- Add your main app screenshot or short demo GIF here -->
-
+<p align="center">
+  <img src="docs/images/01-app-overview.webp"
+       alt="Clip Squeezer application overview"
+       width="800">
+</p>
 ---
 
 ## Four simple tools
 
-- **Compress** — Bring large video files down to size for Slack, Discord, email, or web sharing with simple quality presets: **Best quality**, **Balanced**, and **Smallest file**.
-- **Convert** — Switch between MP4, MOV, MKV, and WebM without codec confusion.
-- **Trim** — Keep only the part you need by choosing a start and end point with a visual preview.
-- **Extract audio** — Save the sound or voice track as MP3 or M4A.
+- **Compress** — Bring large video files down to size for sharing, with simple quality presets: **Best quality**, **Balanced**, and **Smallest file**.
+- **Convert** — Switch between MP4, MOV, MKV, and WebM easily.
+- **Trim** — Clip off the start and/or end of your video.
+- **Extract audio** — Save the sound or voice track, keeping original quality or compressing if you need it.
 
 ---
 
 ## Why Clip Squeezer?
 
 - **100% local & private** — Everything is processed on your computer. Your media is never uploaded.
-- **No telemetry or tracking** — No analytics, advertising, crash reporting, or background data collection.
+- **No telemetry or tracking** — No advertising. No analytics. No background data collection.
 - **Safe by default** — Your original video is never overwritten. Outputs are always saved as new files.
-- **No bloat** — No timelines, complicated menus, or multi-track editing. Pick a tool, choose your file, and get your result.
-- **Instant cancel** — Stop a running job with one click. Background processing stops and temporary files are cleaned up.
+- **Simple** — Pick a tool, choose your file, and get your result. Under the hood it uses the best video and sound processing, retaining high quality and lossless where possible.
 - **Open source** — The application and its build process can be inspected on GitHub.
 
 ---
@@ -64,12 +66,10 @@ Download the latest release from the [GitHub Releases page](https://github.com/r
 
 ## Documentation & project guides
 
-- **[Development Setup](docs/DEVELOPMENT.md)** — Local prerequisites, building from source, running tests, and packaging.
-- **[Architecture & Engine](docs/ARCHITECTURE.md)** — Details on the Tauri desktop shell, two-stage planner, and bundled FFmpeg sidecar runner.
-- **[Branding & Design](docs/BRANDING.md)** — Brand assets, logo files, colour palette, and interface icon set.
-- **[Release Process](docs/RELEASING.md)** — GitHub Actions build and release workflow.
-
-The application source and build configuration live together in [`app/`](app/). Keeping them in one place makes this repository easier to browse while preserving the usual npm and Tauri project structure inside that directory.
+- **[Development Setup](docs/DEVELOPMENT.md)** 
+- **[Architecture & Engine](docs/ARCHITECTURE.md)** 
+- **[Branding & Design](docs/BRANDING.md)** 
+- **[Release Process](docs/RELEASING.md)**
 
 ---
 
