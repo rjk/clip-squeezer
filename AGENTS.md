@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Issues are tracked as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+Issues are tracked in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 

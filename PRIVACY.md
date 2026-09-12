@@ -12,8 +12,10 @@ All video and audio processing — including compression, format conversion, tri
 Your media files never leave your device.
 
 ### 2. No Network Transmission or Cloud Storage
-- The application does not upload your files, video clips, audio tracks, or file metadata to any external server or cloud service.
-- The application works completely offline. No active internet connection is required to use any of its features.
+
+- Clip Squeezer does not transfer information to any external or networked system during normal use.
+- The application does not upload your files, video clips, audio tracks, file metadata, usage information, or other personal information to any external server or cloud service.
+- The application works completely offline. No active internet connection is required to use its media-processing features.
 
 ### 3. Zero Telemetry, Analytics, or Tracking
 - We do not collect, store, or transmit analytics, usage statistics, device fingerprints, or crash reports.
@@ -28,7 +30,10 @@ The application treats your original media as read-only:
 Any application state (such as recent activity history or your preferred destination directory) is saved strictly on your local machine using standard local storage mechanisms. You can clear your activity history at any time with the "Clear History" button.
 
 ### 6. Open Source and Verifiable
-The source code for this utility is open and auditable. Anyone can inspect the code to verify that no network requests or background data collections are performed.
+
+The source code for Clip Squeezer is open and auditable. Anyone can inspect the code to verify that no network requests or background data collection are performed.
+
+Clip Squeezer bundles FFmpeg and FFprobe for local media processing. These components run locally and are not used to transmit your media or other information to external services.
 
 ---
 
