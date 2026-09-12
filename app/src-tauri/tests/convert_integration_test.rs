@@ -16,7 +16,7 @@ fn test_convert_remux_and_transcode_end_to_end() {
     let probe = probe_media_file(&ffprobe_bin, &fixture_path).expect("Probe fixture");
 
     // 1. Remux MP4 -> MKV (both h264 and aac copy directly into MKV)
-    let mkv_req = ConvertRequest { format: ConvertFormat::Mkv };
+    let mkv_req = ConvertRequest { format: ConvertFormat::Mkv, allow_large_gif: false };
     let mkv_plan = plan_conversion(&probe, &mkv_req).expect("Plan MP4->MKV");
     assert!(mkv_plan.is_remux, "MP4 -> MKV should be remux/stream-copy");
 
@@ -34,7 +34,7 @@ fn test_convert_remux_and_transcode_end_to_end() {
     let _ = fs::remove_file(mkv_plan.output_path);
 
     // 2. Transcode MP4 -> WebM (VP9 + Opus)
-    let webm_req = ConvertRequest { format: ConvertFormat::Webm };
+    let webm_req = ConvertRequest { format: ConvertFormat::Webm, allow_large_gif: false };
     let webm_plan = plan_conversion(&probe, &webm_req).expect("Plan MP4->WebM");
     assert!(!webm_plan.is_remux, "MP4 -> WebM requires transcode");
 

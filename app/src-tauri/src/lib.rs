@@ -22,6 +22,7 @@ pub fn run() {
             commands::probe_media,
             commands::start_compression,
             commands::check_conversion,
+            commands::estimate_gif,
             commands::start_conversion,
             commands::start_audio_extraction,
             commands::start_trim,

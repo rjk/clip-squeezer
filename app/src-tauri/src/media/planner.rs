@@ -4,6 +4,10 @@ use crate::errors::MediaError;
 use crate::files::naming::resolve_collision_safe_path;
 use crate::media::probe::MediaInfo;
 
+pub const GIF_MAX_LONG_EDGE: u32 = 640;
+pub const GIF_FRAME_RATE: u32 = 12;
+pub const GIF_SIZE_LIMIT_BYTES: u64 = 25 * 1024 * 1024;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompressQuality {
     BestQuality,
@@ -43,6 +47,9 @@ pub enum ConvertFormat {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConvertRequest {
     pub format: ConvertFormat,
+    /// GIFs larger than the sharing-friendly limit need an explicit confirmation in the UI.
+    #[serde(default, alias = "allowLargeGif")]
+    pub allow_large_gif: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,6 +59,14 @@ pub struct ConversionPlanSummary {
     pub audio_action: String,
     pub target_ext: String,
     pub message: String,
+}
+
+/// The filter graph used for both a real GIF and its preflight samples. Keeping it in one
+/// place means the estimate describes the file the user will actually receive.
+pub fn gif_filter_graph() -> String {
+    format!(
+        "[0:v]fps={GIF_FRAME_RATE},scale={GIF_MAX_LONG_EDGE}:{GIF_MAX_LONG_EDGE}:force_original_aspect_ratio=decrease:flags=lanczos,split=2[gif_frames][gif_palette_source];[gif_palette_source]palettegen=stats_mode=diff[gif_palette];[gif_frames][gif_palette]paletteuse=dither=sierra2_4a[gif_output]"
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,6 +116,9 @@ pub struct MediaPlan {
     pub video_strategy: VideoStrategy,
     pub audio_strategy: AudioStrategy,
     pub video_filter: Option<String>,
+    pub filter_complex: Option<String>,
+    pub video_map: Option<String>,
+    pub max_output_size_bytes: Option<u64>,
     pub seek_start: Option<f64>,
     pub duration_limit: Option<f64>,
     pub faststart: bool,
@@ -192,6 +210,9 @@ pub fn plan_compression(probe: &MediaInfo, req: &CompressRequest) -> Result<Medi
         video_strategy,
         audio_strategy,
         video_filter,
+        filter_complex: None,
+        video_map: None,
+        max_output_size_bytes: None,
         seek_start: None,
         duration_limit: None,
         faststart: true,
@@ -331,6 +352,21 @@ pub fn plan_conversion(probe: &MediaInfo, req: &ConvertRequest) -> Result<MediaP
         video_strategy,
         audio_strategy,
         video_filter: None,
+        filter_complex: if req.format == ConvertFormat::Gif {
+            Some(gif_filter_graph())
+        } else {
+            None
+        },
+        video_map: if req.format == ConvertFormat::Gif {
+            Some("[gif_output]".to_string())
+        } else {
+            None
+        },
+        max_output_size_bytes: if req.format == ConvertFormat::Gif && !req.allow_large_gif {
+            Some(GIF_SIZE_LIMIT_BYTES)
+        } else {
+            None
+        },
         seek_start: None,
         duration_limit: None,
         faststart,
@@ -393,6 +429,9 @@ pub fn plan_audio_extraction(probe: &MediaInfo, req: &ExtractAudioRequest) -> Re
         video_strategy: VideoStrategy::Omit,
         audio_strategy,
         video_filter: None,
+        filter_complex: None,
+        video_map: None,
+        max_output_size_bytes: None,
         seek_start: None,
         duration_limit: None,
         faststart: false,
@@ -457,6 +496,9 @@ pub fn plan_trim(probe: &MediaInfo, req: &TrimRequest) -> Result<MediaPlan, Medi
         video_strategy,
         audio_strategy: if probe.has_audio { audio_strategy } else { AudioStrategy::Omit },
         video_filter: None,
+        filter_complex: None,
+        video_map: None,
+        max_output_size_bytes: None,
         seek_start: Some(req.start_seconds),
         duration_limit: Some(target_duration),
         faststart,
@@ -466,7 +508,7 @@ pub fn plan_trim(probe: &MediaInfo, req: &TrimRequest) -> Result<MediaPlan, Medi
 }
 
 pub fn check_conversion_plan(probe: &MediaInfo, format: ConvertFormat) -> ConversionPlanSummary {
-    let req = ConvertRequest { format };
+    let req = ConvertRequest { format, allow_large_gif: false };
     let plan = plan_conversion(probe, &req);
 
     match plan {
@@ -531,6 +573,11 @@ pub fn build_ffmpeg_args(plan: &MediaPlan) -> Vec<String> {
         args.push(format!("{:.3}", t));
     }
 
+    if let Some(filter_complex) = &plan.filter_complex {
+        args.push("-filter_complex".to_string());
+        args.push(filter_complex.clone());
+    }
+
     match &plan.video_strategy {
         VideoStrategy::Copy => {
             args.push("-c:v".to_string());
@@ -564,6 +611,11 @@ pub fn build_ffmpeg_args(plan: &MediaPlan) -> Vec<String> {
     if let Some(filter) = &plan.video_filter {
         args.push("-vf".to_string());
         args.push(filter.clone());
+    }
+
+    if let Some(video_map) = &plan.video_map {
+        args.push("-map".to_string());
+        args.push(video_map.clone());
     }
 
     match &plan.audio_strategy {
@@ -715,7 +767,7 @@ mod tests {
         probe.video_streams[0].codec = "h264".to_string();
         probe.audio_streams[0].codec = "aac".to_string();
 
-        let req = ConvertRequest { format: ConvertFormat::Mp4 };
+        let req = ConvertRequest { format: ConvertFormat::Mp4, allow_large_gif: false };
         let plan = plan_conversion(&probe, &req).expect("Convert plan");
 
         assert_eq!(plan.video_strategy, VideoStrategy::Copy);
@@ -737,7 +789,7 @@ mod tests {
         probe.video_streams[0].codec = "vp9".to_string();
         probe.audio_streams[0].codec = "opus".to_string();
 
-        let req = ConvertRequest { format: ConvertFormat::Mp4 };
+        let req = ConvertRequest { format: ConvertFormat::Mp4, allow_large_gif: false };
         let plan = plan_conversion(&probe, &req).expect("Convert plan");
 
         assert!(!plan.is_remux);
@@ -825,7 +877,7 @@ mod tests {
     #[test]
     fn test_plan_conversion_to_gif() {
         let probe = sample_4k_probe();
-        let req = ConvertRequest { format: ConvertFormat::Gif };
+        let req = ConvertRequest { format: ConvertFormat::Gif, allow_large_gif: false };
         let plan = plan_conversion(&probe, &req).expect("Gif plan");
 
         assert_eq!(plan.video_strategy, VideoStrategy::Transcode {
@@ -844,10 +896,27 @@ mod tests {
         assert!(args.contains(&"-loop".to_string()));
         assert!(args.contains(&"0".to_string()));
         assert!(args.contains(&"-an".to_string()));
+        assert!(args.contains(&"-filter_complex".to_string()));
+        assert!(args.iter().any(|arg| arg.contains("palettegen")));
+        assert!(args.iter().any(|arg| arg.contains("fps=12")));
+        assert!(args.iter().any(|arg| arg.contains("scale=640:640")));
+        assert!(args.contains(&"[gif_output]".to_string()));
+        assert_eq!(plan.max_output_size_bytes, Some(GIF_SIZE_LIMIT_BYTES));
 
         let summary = check_conversion_plan(&probe, ConvertFormat::Gif);
         assert!(!summary.is_remux);
         assert_eq!(summary.target_ext, "gif");
         assert!(summary.message.contains("Made for short clips"));
+    }
+
+    #[test]
+    fn test_large_gif_confirmation_removes_output_limit() {
+        let probe = sample_4k_probe();
+        let req = ConvertRequest { format: ConvertFormat::Gif, allow_large_gif: true };
+
+        let plan = plan_conversion(&probe, &req).expect("GIF plan");
+
+        assert_eq!(plan.max_output_size_bytes, None);
+        assert!(plan.filter_complex.is_some());
     }
 }

@@ -53,6 +53,7 @@ export type ConvertFormat = 'Mp4' | 'Mov' | 'Mkv' | 'Webm' | 'Gif';
 
 export interface ConvertRequest {
   format: ConvertFormat;
+  allow_large_gif: boolean;
 }
 
 export type ExtractAudioMode = 'OriginalQuality' | 'Mp3' | 'M4a';

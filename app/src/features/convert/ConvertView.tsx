@@ -23,6 +23,13 @@ interface ConversionPlanSummary {
   message: string;
 }
 
+interface GifSizeEstimate {
+  estimated_size_bytes: number;
+  friendly_estimated_size: string;
+  exceeds_size_limit: boolean;
+  size_limit_bytes: number;
+}
+
 export const ConvertView: React.FC<ConvertViewProps> = ({
   mediaInfo,
   initialRequest,
@@ -76,21 +83,27 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
     }
     return formatOptions[0]?.id || 'Mp4';
   });
+  const [allowLargeGif, setAllowLargeGif] = useState(
+    () => initialRequest?.allow_large_gif || false
+  );
   const [summaries, setSummaries] = useState<Partial<Record<ConvertFormat, ConversionPlanSummary>>>({});
-
-  const baseName = mediaInfo.filename.replace(/\.[^/.]+$/, '');
-  const destFilename = `${baseName}-converted.${format.toLowerCase()}`;
+  const [gifEstimate, setGifEstimate] = useState<GifSizeEstimate | null>(null);
+  const [isEstimatingGif, setIsEstimatingGif] = useState(false);
+  const [convertAfterEstimate, setConvertAfterEstimate] = useState(false);
 
   const handleFormatSelect = (newFormat: ConvertFormat) => {
     setFormat(newFormat);
-    onChange?.({ format: newFormat });
+    if (newFormat !== 'Gif') setConvertAfterEstimate(false);
+    const nextAllowLargeGif = newFormat === 'Gif' ? allowLargeGif : false;
+    setAllowLargeGif(nextAllowLargeGif);
+    onChange?.({ format: newFormat, allow_large_gif: nextAllowLargeGif });
   };
 
   useEffect(() => {
     let isCurrent = true;
 
     // Check all format options upfront so switching is instantaneous and never flickers
-    formatOptions.forEach((opt) => {
+    formatOptions.filter((opt) => opt.id !== 'Gif').forEach((opt) => {
       invoke<ConversionPlanSummary>('check_conversion', {
         path: mediaInfo.path,
         format: opt.id,
@@ -110,12 +123,64 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
     };
   }, [mediaInfo.path]);
 
+  useEffect(() => {
+    if (format !== 'Gif') {
+      setIsEstimatingGif(false);
+      setGifEstimate(null);
+      return;
+    }
+
+    let isCurrent = true;
+    setGifEstimate(null);
+    setIsEstimatingGif(true);
+    invoke<GifSizeEstimate>('estimate_gif', { path: mediaInfo.path })
+      .then((estimate) => {
+        if (isCurrent) setGifEstimate(estimate);
+      })
+      .catch((err) => {
+        console.error('Failed to estimate GIF size:', err);
+      })
+      .finally(() => {
+        if (isCurrent) setIsEstimatingGif(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [format, mediaInfo.path]);
+
   const currentSummary = summaries[format];
+  const gifNeedsConfirmation = Boolean(
+    format === 'Gif' && gifEstimate?.exceeds_size_limit && !allowLargeGif
+  );
+
+  useEffect(() => {
+    if (!convertAfterEstimate || isEstimatingGif) return;
+
+    setConvertAfterEstimate(false);
+    if (gifNeedsConfirmation) return;
+
+    const request = { format, allow_large_gif: allowLargeGif };
+    onChange?.(request);
+    onStartConvert(request);
+  }, [allowLargeGif, convertAfterEstimate, format, gifNeedsConfirmation, isEstimatingGif, onChange, onStartConvert]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onChange?.({ format });
-    onStartConvert({ format });
+    // Keep the button available while the estimate runs. The summary below explains why
+    // conversion waits briefly instead of changing the cursor to a disabled state.
+    if (format === 'Gif' && isEstimatingGif) {
+      setConvertAfterEstimate(true);
+      return;
+    }
+
+    const request = {
+      format,
+      // Clicking the explicitly labelled large-GIF action is the confirmation.
+      allow_large_gif: allowLargeGif || gifNeedsConfirmation,
+    };
+    onChange?.(request);
+    onStartConvert(request);
   };
 
   return (
@@ -160,14 +225,14 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
           <div>
             <div style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--text-main)' }}>
               {format === 'Gif'
-                ? 'Made for short clips'
+                ? 'Optimised for web sharing'
                 : currentSummary?.is_remux
                 ? 'No quality change'
                 : 'The video needs converting'}
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
               {format === 'Gif'
-                ? 'GIFs loop automatically and are easy to share, but can be much larger than MP4 or WebM.'
+                ? 'GIFs loop automatically at 640px and 12 frames per second, with no sound.'
                 : currentSummary?.is_remux
                 ? "It'll be quick with no quality loss as we don't need to re-encode the video."
                 : 'This will take a bit longer as it needs re-encoding. Quality should remain the same.'}
@@ -178,16 +243,31 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
         <div className="config-actions">
           <div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500' }}>
-              Destination: <strong>{destFilename}</strong>
+              New file size:{' '}
+              <strong>
+                {format === 'Gif'
+                  ? isEstimatingGif
+                    ? 'estimating…'
+                    : gifEstimate
+                    ? `around ${gifEstimate.friendly_estimated_size}`
+                    : 'will be checked while converting'
+                  : 'shown when conversion finishes'}
+              </strong>
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Your original file is never modified.
-            </div>
+            {gifNeedsConfirmation ? (
+              <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '2px' }}>
+                Above the 25 MB sharing limit. A shorter clip or MP4 will be more practical.
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Your original file is never modified.
+              </div>
+            )}
           </div>
 
           <button type="submit" className="btn-primary">
             <Icon name="convert" size={16} />
-            <span>Convert</span>
+            <span>{gifNeedsConfirmation ? 'Create GIF anyway' : isEstimatingGif ? 'Checking GIF size…' : 'Convert'}</span>
           </button>
         </div>
       </form>

@@ -18,6 +18,7 @@ pub enum MediaError {
     InsufficientSpace { required_mb: u64, available_mb: u64 },
     ProcessFailed { exit_code: Option<i32>, stderr: String },
     Cancelled,
+    OutputSizeLimitExceeded { limit_bytes: u64 },
     OutputValidationFailed(String),
     BinaryNotFound(String),
     IoError(String),
@@ -64,6 +65,14 @@ impl MediaError {
             MediaError::Cancelled => ErrorDetails {
                 title: "Cancelled".to_string(),
                 message: "The operation was cancelled.".to_string(),
+                technical_details: None,
+            },
+            MediaError::OutputSizeLimitExceeded { limit_bytes } => ErrorDetails {
+                title: "GIF is too large to share easily".to_string(),
+                message: format!(
+                    "This GIF exceeded the {} MB sharing limit, so it was not saved. Try a shorter clip or choose MP4 instead.",
+                    limit_bytes / (1024 * 1024)
+                ),
                 technical_details: None,
             },
             MediaError::OutputValidationFailed(reason) => ErrorDetails {

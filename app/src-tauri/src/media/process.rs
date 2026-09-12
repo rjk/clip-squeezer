@@ -122,6 +122,7 @@ impl JobManager {
         let mut reader = BufReader::new(stdout);
         let mut progress_parser = ProgressParser::new();
         let mut line_buf = String::new();
+        let mut output_size_limit_exceeded = false;
 
         while let Ok(bytes_read) = reader.read_line(&mut line_buf) {
             if bytes_read == 0 {
@@ -130,6 +131,19 @@ impl JobManager {
 
             if self.is_cancelled(&job_id) {
                 break;
+            }
+
+            if let Some(limit_bytes) = plan.max_output_size_bytes {
+                if fs::metadata(&plan.output_path)
+                    .map(|metadata| metadata.len() > limit_bytes)
+                    .unwrap_or(false)
+                {
+                    output_size_limit_exceeded = true;
+                    if let Ok(mut child) = child_arc.lock() {
+                        let _ = child.kill();
+                    }
+                    break;
+                }
             }
 
             if let Some(update) = progress_parser.parse_line(&line_buf, plan.expected_duration) {
@@ -155,6 +169,15 @@ impl JobManager {
         {
             let mut children = self.children.lock().unwrap();
             children.remove(&job_id);
+        }
+
+        if output_size_limit_exceeded {
+            if plan.output_path.exists() {
+                let _ = fs::remove_file(&plan.output_path);
+            }
+            return Err(MediaError::OutputSizeLimitExceeded {
+                limit_bytes: plan.max_output_size_bytes.unwrap_or_default(),
+            });
         }
 
         if self.is_cancelled(&job_id) {
@@ -201,6 +224,13 @@ impl JobManager {
             return Err(MediaError::OutputValidationFailed(
                 "Resulting output file is empty (0 bytes).".to_string(),
             ));
+        }
+
+        if let Some(limit_bytes) = plan.max_output_size_bytes {
+            if result_size_bytes > limit_bytes {
+                let _ = fs::remove_file(&plan.output_path);
+                return Err(MediaError::OutputSizeLimitExceeded { limit_bytes });
+            }
         }
 
         let friendly_original_size = format_bytes(original_size_bytes);
