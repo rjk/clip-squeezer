@@ -73,5 +73,14 @@ Download the latest release from the [GitHub Releases page](https://github.com/r
 
 ## Licensing
 
-- Application source code is dual-licensed under [MIT](LICENSE-MIT) and [Apache 2.0](LICENSE-APACHE).
-- Bundled FFmpeg binaries are licensed under the GNU General Public License (GPL) v3. See [THIRD_PARTY_LICENSES/ffmpeg.txt](THIRD_PARTY_LICENSES/ffmpeg.txt) for details.
+Clip Squeezer is free and open-source software licensed under the **GNU General Public License v3.0 or later (`GPL-3.0-or-later`)**.
+
+You are free to use, study, modify and redistribute Clip Squeezer under the terms of the GPL.
+
+See [LICENSE](LICENSE) for the full licence.
+
+Copyright © Rory Kingan.
+
+Clip Squeezer bundles third-party open-source components, including FFmpeg and FFprobe. These components remain subject to their respective upstream licences.
+
+See [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES) for details.

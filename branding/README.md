@@ -1,6 +1,6 @@
 # Clip Squeezer brand kit
 
-Open [the visual gallery](index.html) in a browser. It works offline. Assets are original vector artwork created for this project and are provided under the repository's MIT OR Apache-2.0 license.
+Open [the visual gallery](index.html) in a browser. It works offline. Assets are original vector artwork created for this project and are provided under the repository's GPL-3.0-or-later licence.
 
 ## Direction
 

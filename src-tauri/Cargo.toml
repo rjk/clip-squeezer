@@ -3,6 +3,7 @@ name = "clip-squeezer"
 version = "0.2.1"
 description = "Clip Squeezer"
 authors = ["Rory Kingan"]
+license = "GPL-3.0-or-later"
 edition = "2021"
 
 [lib]
