@@ -1,6 +1,6 @@
 [package]
 name = "clip-squeezer"
-version = "0.2.1"
+version = "0.3.0"
 description = "Clip Squeezer"
 authors = ["Rory Kingan"]
 license = "GPL-3.0-or-later"
