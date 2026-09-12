@@ -30,6 +30,9 @@ jobs:
             args: '--target x86_64-apple-darwin'
 
     runs-on: ${{ matrix.platform }}
+    defaults:
+      run:
+        working-directory: app
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,6 +49,7 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
+          cache-dependency-path: app/package-lock.json
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -72,6 +76,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          projectPath: app
           tagName: v__VERSION__
           releaseName: 'Clip Squeezer v__VERSION__'
           releaseBody: 'Download Clip Squeezer for Windows and macOS below.'

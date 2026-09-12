@@ -10,8 +10,9 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/rorykingan/clip-squeezer.git
+git clone https://github.com/rjk/clip-squeezer.git
 cd clip-squeezer
+cd app
 
 # Install web dependencies
 npm install
@@ -48,6 +49,6 @@ cargo test --manifest-path src-tauri/Cargo.toml
 npm run tauri build
 ```
 
-The resulting installer (.msi / .exe / .dmg / .deb) will be located in src-tauri/target/release/bundle/.
+The resulting installer (`.msi`, `.exe`, `.dmg`, or `.deb`) will be located in `app/src-tauri/target/release/bundle/` when viewed from the repository root.
 
 For automated multi-platform releases (Windows & macOS) via GitHub Actions, see [Release Guide](RELEASING.md).

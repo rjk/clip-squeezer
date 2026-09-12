@@ -24,12 +24,16 @@ dist-ssr
 *.sw?
 
 # Tauri and Cargo
+app/src-tauri/target
+app/src-tauri/binaries/*
+!app/src-tauri/binaries/.gitkeep
+# Ignore build output left at the pre-reorganisation location.
 src-tauri/target
 src-tauri/binaries/*
-!src-tauri/binaries/.gitkeep
+src-tauri/gen/schemas
 
 # Test artifacts
-tests/fixtures/*-*.*
+app/tests/fixtures/*-*.*
 
 # Agent metadata, scratch notes, and internal product briefs
 .agents/

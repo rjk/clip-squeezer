@@ -12,9 +12,9 @@ Clip Squeezer uses GitHub Actions ([`.github/workflows/release.yml`](../.github/
 | :--- | :--- | :--- |
 | `windows-latest` | `x86_64-pc-windows-msvc` | Windows `.exe` / `.msi` installers |
 | `macos-latest` | `aarch64-apple-darwin` | Apple Silicon `.dmg` installer (M1/M2/M3/M4) |
-| `macos-13` | `x86_64-apple-darwin` | Intel Mac `.dmg` installer |
+| `macos-15-intel` | `x86_64-apple-darwin` | Intel Mac `.dmg` installer |
 
-Each runner downloads the matching static FFmpeg/FFprobe binaries into `src-tauri/binaries/` and uses `tauri-apps/tauri-action` to build native bundles and attach them directly to GitHub Releases.
+Each runner downloads the matching static FFmpeg/FFprobe binaries into `app/src-tauri/binaries/` and uses `tauri-apps/tauri-action` to build native bundles and attach them directly to GitHub Releases.
 
 ---
 
@@ -22,9 +22,11 @@ Each runner downloads the matching static FFmpeg/FFprobe binaries into `src-taur
 
 ### Automated Release (Recommended)
 
-Run the release script from the repository root:
+Run the release script from the application directory:
 
 ```bash
+cd app
+
 # Interactive mode (prompts for patch, minor, major, or custom version)
 npm run release
 
@@ -40,7 +42,7 @@ npm run release -- -y           # Skip confirmation prompt
 
 The script automatically:
 1. Validates a clean git working tree on `main`.
-2. Bumps version in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
+2. Bumps version in `app/package.json`, `app/src-tauri/tauri.conf.json`, and `app/src-tauri/Cargo.toml`.
 3. Synchronizes `package-lock.json` and `Cargo.lock`.
 4. Runs verification build (`npm run build`).
 5. Commits changes (`chore: bump version to X.Y.Z`).
@@ -55,10 +57,10 @@ If you prefer to perform the steps manually:
 
 #### 1. Update Version Numbers
 Ensure the version matches in:
-- `package.json` (`"version": "X.Y.Z"`)
-- `src-tauri/tauri.conf.json` (`"version": "X.Y.Z"`)
-- `src-tauri/Cargo.toml` (`version = "X.Y.Z"`)
-- Run `npm install --package-lock-only` and `cargo check` in `src-tauri` to update lockfiles.
+- `app/package.json` (`"version": "X.Y.Z"`)
+- `app/src-tauri/tauri.conf.json` (`"version": "X.Y.Z"`)
+- `app/src-tauri/Cargo.toml` (`version = "X.Y.Z"`)
+- From `app/`, run `npm install --package-lock-only`, then run `cargo check --manifest-path src-tauri/Cargo.toml` to update lockfiles.
 
 #### 2. Commit and Push
 ```bash

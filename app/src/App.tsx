@@ -536,7 +536,7 @@ export function App() {
             >
               <button
                 onClick={() =>
-                  openUrl('https://github.com/rjk/clip-squeezer/blob/main/PRIVACY.md')
+                  openUrl('https://github.com/rjk/clip-squeezer/blob/main/docs/privacy.md')
                 }
                 style={{
                   background: 'none',

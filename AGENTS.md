@@ -6,4 +6,4 @@ Issues are tracked in this repository's GitHub Issues. See `docs/agents/issue-tr
 
 ### Domain docs
 
-Single-context repository layout (`CONTEXT.md` and `docs/adr/` at the repository root). See `docs/agents/domain.md`.
+Single-context repository layout. The domain context is in `docs/development/context.md` and architectural decisions are in `docs/adr/`. See `docs/agents/domain.md`.

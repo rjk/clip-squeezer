@@ -8,7 +8,7 @@ Simple Video Utility is a lightweight desktop utility for Windows and macOS. The
 
 ## Decision
 1. We use **Tauri 2** as the desktop application framework with a React + TypeScript frontend and a Rust backend.
-2. FFmpeg and FFprobe are bundled as **sidecar executables** with target-triple naming (e.g. `ffmpeg-x86_64-pc-windows-msvc.exe`) placed in `src-tauri/binaries/`.
+2. FFmpeg and FFprobe are bundled as **sidecar executables** with target-triple naming (e.g. `ffmpeg-x86_64-pc-windows-msvc.exe`) placed in `app/src-tauri/binaries/`.
 3. The Rust backend invokes sidecars directly via argument vectors (`std::process::Command::new(binary_path).args(&[...])`) rather than delegating shell execution to the frontend or invoking shell interpreters (`cmd.exe` or `sh`).
 4. Communication between frontend and backend is strictly via strongly-typed Tauri commands (e.g. `probe_media`, `start_compression`, `cancel_job`).
 

@@ -26,7 +26,7 @@ Open [the visual gallery](index.html) in a browser. It works offline. Assets are
 | Repository / release banner | `social/repository-banner.svg` and PNG, 1280 × 640 |
 | Profile / project avatar | `social/avatar.svg` and PNG, 512 × 512 |
 
-The installed desktop assets live in `../src-tauri/icons/`. Web-ready copies, ICO favicon and 180 px touch icon live in `../public/brand/` and the landing page's `brand/` directory. The desktop app and site use the same source artwork.
+The installed desktop assets live in `app/src-tauri/icons/`. Web-ready copies, the ICO favicon, and the 180 px touch icon live in `app/public/brand/` and the landing page's `brand/` directory. The desktop app and site use the same source artwork.
 
 ## Logo use
 
@@ -48,7 +48,7 @@ Leave clear space of at least one-quarter of the mark's height around a lockup. 
 | Apricot | `#FBE9DA` | Trim, ink `#8B4A21` |
 | Lilac | `#EEE7F6` | Extract audio, ink `#71538B` |
 
-Use the operating system's sans-serif font: Segoe UI on Windows, the system font on macOS, with a generic sans-serif fallback. Body: regular, 14–16 px. Buttons: medium/semibold. Headings: semibold/bold with slightly tighter spacing. Exported lockups and campaign graphics use outlined DejaVu Sans so they need no installed font; font files are not distributed. UI colour tokens, including dark-theme values, live in `../src/App.css`.
+Use the operating system's sans-serif font: Segoe UI on Windows, the system font on macOS, with a generic sans-serif fallback. Body: regular, 14–16 px. Buttons: medium/semibold. Headings: semibold/bold with slightly tighter spacing. Exported lockups and campaign graphics use outlined DejaVu Sans so they need no installed font; font files are not distributed. UI colour tokens, including dark-theme values, live in `app/src/App.css`.
 
 ## Icon use
 
@@ -70,7 +70,7 @@ Avoid codec language in headlines, “magic”, fixed savings, instant-processin
 
 ## Rebuilding the kit
 
-Run from `video-editor/`:
+Run from the repository's `app/` directory:
 
 ```sh
 node scripts/build-brand.mjs
@@ -79,6 +79,6 @@ npm install --prefix /tmp/clipsqueezer-brand @resvg/resvg-js@2.6.2 opentype.js@2
 node scripts/export-brand.mjs /tmp/clipsqueezer-brand/node_modules
 ```
 
-The SVG builder uses `source/mark.svg` and `../src/assets/brand-icons.json`. The export step outlines text, renders PNGs, and assembles ICO/ICNS containers. It updates desktop and website copies. Run both steps after changing the sources. The exporter defaults to DejaVu Sans under `/usr/share/fonts/truetype/dejavu/`; set `BRAND_FONT_REGULAR` and `BRAND_FONT_BOLD` to equivalent local font paths on other systems. No new runtime dependencies are required.
+The SVG builder uses `docs/branding/source/mark.svg` and `app/src/assets/brand-icons.json`. The export step outlines text, renders PNGs, and assembles ICO/ICNS containers. It updates desktop and website copies. Run both steps after changing the sources. The exporter defaults to DejaVu Sans under `/usr/share/fonts/truetype/dejavu/`; set `BRAND_FONT_REGULAR` and `BRAND_FONT_BOLD` to equivalent local font paths on other systems. No new runtime dependencies are required.
 
 The landing page is local HTML/CSS with no font or styling CDN. Its deploy scripts allow AWS CLI to infer each asset's MIME type. Branding updates are prepared locally; publishing remains a separate action.

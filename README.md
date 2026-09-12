@@ -36,7 +36,7 @@ Available for **Windows** and **macOS**. Free and open source.
 
 Clip Squeezer processes media locally and does not transmit your files or usage information to external systems.
 
-See the [Privacy Policy](PRIVACY.md) for details.
+See the [Privacy Policy](docs/privacy.md) for details.
 
 ---
 
@@ -46,7 +46,7 @@ Official Windows releases are code signed to help users verify their origin and 
 
 **Free code signing provided by SignPath.io, certificate by SignPath Foundation.**
 
-See the [Code signing policy](CODE_SIGNING_POLICY.md) for the release, approval, and signing process.
+See the [Code signing policy](docs/code-signing.md) for the release, approval, and signing process.
 
 ---
 
@@ -69,6 +69,8 @@ Download the latest release from the [GitHub Releases page](https://github.com/r
 - **[Branding & Design](docs/BRANDING.md)** — Brand assets, logo files, colour palette, and interface icon set.
 - **[Release Process](docs/RELEASING.md)** — GitHub Actions build and release workflow.
 
+The application source and build configuration live together in [`app/`](app/). Keeping them in one place makes this repository easier to browse while preserving the usual npm and Tauri project structure inside that directory.
+
 ---
 
 ## Licensing
@@ -83,4 +85,4 @@ Copyright © Rory Kingan.
 
 Clip Squeezer bundles third-party open-source components, including FFmpeg and FFprobe. These components remain subject to their respective upstream licences.
 
-See [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES) for details.
+See [Third-party licences](docs/third-party-licenses/) for details.

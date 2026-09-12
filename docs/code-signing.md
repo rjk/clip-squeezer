@@ -58,7 +58,7 @@ Clip Squeezer processes video and audio files locally on the user's computer.
 
 The application does not upload users' media files for processing.
 
-See the [Clip Squeezer privacy policy](./PRIVACY.md) for details.
+See the [Clip Squeezer privacy policy](privacy.md) for details.
 
 ## Reporting concerns
 

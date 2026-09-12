@@ -35,8 +35,8 @@
       "binaries/ffprobe"
     ],
     "resources": [
-      "../LICENSE",
-      "../THIRD_PARTY_LICENSES"
+      "../../LICENSE",
+      "../../docs/third-party-licenses"
     ],
     "icon": [
       "icons/32x32.png",

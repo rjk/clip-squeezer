@@ -1,5 +1,5 @@
 // Usage: node scripts/export-brand.mjs /path/to/export-tools/node_modules
-// Export tools: @resvg/resvg-js, opentype.js (see branding/README.md).
+// Export tools: @resvg/resvg-js, opentype.js (see ../docs/branding/README.md).
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { readFile, writeFile, readdir, mkdir, copyFile } from 'node:fs/promises';
@@ -10,7 +10,7 @@ const require = createRequire(path.resolve(process.argv[2] || 'node_modules', '.
 const { Resvg } = require('@resvg/resvg-js');
 const opentype = require('opentype.js');
 const root = fileURLToPath(new URL('../', import.meta.url));
-const brand = path.join(root, 'branding');
+const brand = path.join(root, '../docs/branding');
 const regular = opentype.parse(readFileSync(process.env.BRAND_FONT_REGULAR || '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf').buffer);
 const bold = opentype.parse(readFileSync(process.env.BRAND_FONT_BOLD || '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf').buffer);
 
@@ -81,7 +81,7 @@ for (const dir of [native,exports]) {
   await writeFile(path.join(dir,'icon.ico'),ico(app));
   await writeFile(path.join(dir,'icon.icns'),Buffer.concat([h,...chunks]));
 }
-for (const dir of [path.join(root,'public/brand'),path.join(root,'../clipsqueezer-site/clip-squeezer/brand')]) {
+for (const dir of [path.join(root,'public/brand'),path.join(root,'../../clipsqueezer-site/clip-squeezer/brand')]) {
   for (const file of ['logo-horizontal.svg','logo-horizontal-reversed.svg']) await copyFile(path.join(brand,'logos',file),path.join(dir,file));
   await writeFile(path.join(dir,'favicon.ico'),ico(favicon));
   await writeFile(path.join(dir,'apple-touch-icon.png'),png(favicon,180));
