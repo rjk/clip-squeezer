@@ -624,6 +624,52 @@ button {
   border-top: 1px solid var(--border);
 }
 
+.output-file-details {
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.output-file-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.output-file-line strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.output-file-size {
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.output-file-warning {
+  color: var(--error);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.output-file-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.output-file-edit:hover {
+  background: var(--primary-light);
+}
+
 /* Progress View */
 .progress-container {
   background-color: var(--bg-card);
@@ -745,16 +791,19 @@ button {
   margin-top: 12px;
 }
 
-/* Error View */
-.error-container {
-  background-color: var(--error-bg);
-  border: 1px solid var(--error);
-  border-radius: var(--radius);
-  padding: 24px;
+/* Error modal */
+.error-modal-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 16px;
+  border-color: color-mix(in srgb, var(--error) 40%, var(--border));
+}
+
+.error-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .error-title {
@@ -766,6 +815,13 @@ button {
 .error-message {
   color: var(--text-main);
   font-size: 0.95rem;
+}
+
+.error-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .tech-details {

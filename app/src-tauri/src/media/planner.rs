@@ -126,6 +126,135 @@ pub struct MediaPlan {
     pub is_remux: bool,
 }
 
+/// Apply the output file chosen by the user after a plan has supplied its
+/// collision-safe default. The planner remains responsible for its default;
+/// this only replaces it when the user explicitly chooses another location.
+pub fn apply_selected_output_path(
+    plan: &mut MediaPlan,
+    selected_output_path: Option<&str>,
+) -> Result<(), MediaError> {
+    let Some(selected_output_path) = selected_output_path else {
+        return Ok(());
+    };
+
+    let output_path = PathBuf::from(selected_output_path);
+    let canonical_input = plan.input_path.canonicalize().ok();
+    let canonical_output = output_path.canonicalize().ok();
+    let is_source_file = output_path == plan.input_path
+        || matches!((canonical_input, canonical_output), (Some(input), Some(output)) if input == output)
+        || paths_refer_to_same_file(&plan.input_path, &output_path);
+
+    if is_source_file {
+        return Err(MediaError::InvalidOutputPath(
+            "The selected output file is the source media file.".to_string(),
+        ));
+    }
+
+    let expected_extension = plan.output_path.extension().and_then(|extension| extension.to_str());
+    let selected_extension = output_path.extension().and_then(|extension| extension.to_str());
+    if expected_extension.map(str::to_ascii_lowercase) != selected_extension.map(str::to_ascii_lowercase) {
+        return Err(MediaError::InvalidOutputPath(format!(
+            "The selected output file must use the .{} extension.",
+            expected_extension.unwrap_or_default()
+        )));
+    }
+
+    plan.output_path = output_path;
+    Ok(())
+}
+
+fn paths_refer_to_same_file(input_path: &std::path::Path, output_path: &std::path::Path) -> bool {
+    same_file::is_same_file(input_path, output_path).unwrap_or(false)
+}
+
+#[cfg(test)]
+mod output_path_tests {
+    use super::*;
+
+    fn plan() -> MediaPlan {
+        MediaPlan {
+            input_path: PathBuf::from("/videos/input.mp4"),
+            output_path: PathBuf::from("/videos/input-smaller.mp4"),
+            video_strategy: VideoStrategy::Omit,
+            audio_strategy: AudioStrategy::Omit,
+            video_filter: None,
+            filter_complex: None,
+            video_map: None,
+            max_output_size_bytes: None,
+            seek_start: None,
+            duration_limit: None,
+            faststart: false,
+            expected_duration: 0.0,
+            is_remux: false,
+        }
+    }
+
+    #[test]
+    fn keeps_the_collision_safe_default_when_no_output_file_is_selected() {
+        let mut media_plan = plan();
+
+        apply_selected_output_path(&mut media_plan, None).unwrap();
+
+        assert_eq!(media_plan.output_path, PathBuf::from("/videos/input-smaller.mp4"));
+    }
+
+    #[test]
+    fn uses_the_file_selected_by_the_user() {
+        let mut media_plan = plan();
+
+        apply_selected_output_path(&mut media_plan, Some("/exports/smaller-video.mp4")).unwrap();
+
+        assert_eq!(media_plan.output_path, PathBuf::from("/exports/smaller-video.mp4"));
+    }
+
+    #[test]
+    fn rejects_the_source_file_as_the_selected_output() {
+        let mut media_plan = plan();
+
+        let error = apply_selected_output_path(&mut media_plan, Some("/videos/input.mp4"))
+            .unwrap_err();
+
+        assert!(matches!(error, MediaError::InvalidOutputPath(_)));
+    }
+
+    #[test]
+    fn rejects_an_output_with_a_different_extension() {
+        let mut media_plan = plan();
+
+        let error = apply_selected_output_path(&mut media_plan, Some("/exports/smaller-video.mkv"))
+            .unwrap_err();
+
+        assert!(matches!(error, MediaError::InvalidOutputPath(_)));
+    }
+
+    #[test]
+    fn rejects_a_hard_link_to_the_source_file() {
+        let directory = std::env::temp_dir().join(format!(
+            "clip-squeezer-output-link-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let source = directory.join("input.mp4");
+        let linked_output = directory.join("different-name.mp4");
+        std::fs::write(&source, "source media").unwrap();
+        std::fs::hard_link(&source, &linked_output).unwrap();
+        let mut media_plan = plan();
+        media_plan.input_path = source;
+
+        let error = apply_selected_output_path(
+            &mut media_plan,
+            Some(linked_output.to_str().unwrap()),
+        )
+        .unwrap_err();
+
+        assert!(matches!(error, MediaError::InvalidOutputPath(_)));
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+}
+
 pub fn calculate_scale_filter(current_w: u32, current_h: u32, target: CompressResolution) -> Option<String> {
     if target == CompressResolution::KeepOriginal || current_w == 0 || current_h == 0 {
         return None;

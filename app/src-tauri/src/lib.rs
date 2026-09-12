@@ -20,6 +20,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::probe_media,
+            commands::can_write_output_next_to_source,
+            commands::suggest_output_path,
             commands::start_compression,
             commands::check_conversion,
             commands::estimate_gif,

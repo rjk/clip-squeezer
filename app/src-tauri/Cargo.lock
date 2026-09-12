@@ -475,6 +475,7 @@ dependencies = [
 name = "clip-squeezer"
 version = "0.2.1"
 dependencies = [
+ "same-file",
  "serde",
  "serde_json",
  "tauri",

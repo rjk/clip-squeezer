@@ -7,7 +7,7 @@ use tauri::{AppHandle, State};
 use crate::errors::{ErrorDetails, MediaError};
 use crate::media::binaries::resolve_binary;
 use crate::media::planner::{
-    check_conversion_plan, gif_filter_graph, plan_audio_extraction, plan_compression, plan_conversion, plan_trim,
+    apply_selected_output_path, check_conversion_plan, gif_filter_graph, plan_audio_extraction, plan_compression, plan_conversion, plan_trim,
     CompressRequest, ConversionPlanSummary, ConvertFormat, ConvertRequest, ExtractAudioRequest, TrimRequest,
     GIF_SIZE_LIMIT_BYTES,
 };
@@ -121,19 +121,38 @@ pub async fn probe_media(app: AppHandle, path: String) -> Result<MediaInfo, Erro
 }
 
 #[tauri::command]
+pub fn can_write_output_next_to_source(path: String) -> bool {
+    crate::files::naming::can_write_to_source_directory(Path::new(&path))
+}
+
+#[tauri::command]
+pub fn suggest_output_path(path: String, filename: String) -> Result<String, ErrorDetails> {
+    let filename_path = Path::new(&filename);
+    if filename_path.file_name().and_then(|name| name.to_str()) != Some(filename.as_str()) {
+        return Err(MediaError::InvalidOutputPath("The suggested output must be a filename.".to_string()).to_user_friendly());
+    }
+
+    Ok(crate::files::naming::resolve_collision_safe_named_path(Path::new(&path), &filename)
+        .to_string_lossy()
+        .to_string())
+}
+
+#[tauri::command]
 pub async fn start_compression(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
     job_id: Option<String>,
     path: String,
     request: CompressRequest,
+    output_path: Option<String>,
 ) -> Result<JobResult, ErrorDetails> {
     let file_path = PathBuf::from(&path);
     let ffprobe_bin = resolve_binary(&app, "ffprobe").map_err(|e| e.to_user_friendly())?;
     let ffmpeg_bin = resolve_binary(&app, "ffmpeg").map_err(|e| e.to_user_friendly())?;
 
     let probe = probe_media_file(&ffprobe_bin, &file_path).map_err(|e| e.to_user_friendly())?;
-    let plan = plan_compression(&probe, &request).map_err(|e| e.to_user_friendly())?;
+    let mut plan = plan_compression(&probe, &request).map_err(|e| e.to_user_friendly())?;
+    apply_selected_output_path(&mut plan, output_path.as_deref()).map_err(|e| e.to_user_friendly())?;
 
     let job_id = job_id.unwrap_or_else(|| {
         format!(
@@ -199,13 +218,15 @@ pub async fn start_conversion(
     job_id: Option<String>,
     path: String,
     request: ConvertRequest,
+    output_path: Option<String>,
 ) -> Result<JobResult, ErrorDetails> {
     let file_path = PathBuf::from(&path);
     let ffprobe_bin = resolve_binary(&app, "ffprobe").map_err(|e| e.to_user_friendly())?;
     let ffmpeg_bin = resolve_binary(&app, "ffmpeg").map_err(|e| e.to_user_friendly())?;
 
     let probe = probe_media_file(&ffprobe_bin, &file_path).map_err(|e| e.to_user_friendly())?;
-    let plan = plan_conversion(&probe, &request).map_err(|e| e.to_user_friendly())?;
+    let mut plan = plan_conversion(&probe, &request).map_err(|e| e.to_user_friendly())?;
+    apply_selected_output_path(&mut plan, output_path.as_deref()).map_err(|e| e.to_user_friendly())?;
 
     let job_id = job_id.unwrap_or_else(|| {
         format!(
@@ -238,13 +259,15 @@ pub async fn start_audio_extraction(
     job_id: Option<String>,
     path: String,
     request: ExtractAudioRequest,
+    output_path: Option<String>,
 ) -> Result<JobResult, ErrorDetails> {
     let file_path = PathBuf::from(&path);
     let ffprobe_bin = resolve_binary(&app, "ffprobe").map_err(|e| e.to_user_friendly())?;
     let ffmpeg_bin = resolve_binary(&app, "ffmpeg").map_err(|e| e.to_user_friendly())?;
 
     let probe = probe_media_file(&ffprobe_bin, &file_path).map_err(|e| e.to_user_friendly())?;
-    let plan = plan_audio_extraction(&probe, &request).map_err(|e| e.to_user_friendly())?;
+    let mut plan = plan_audio_extraction(&probe, &request).map_err(|e| e.to_user_friendly())?;
+    apply_selected_output_path(&mut plan, output_path.as_deref()).map_err(|e| e.to_user_friendly())?;
 
     let job_id = job_id.unwrap_or_else(|| {
         format!(
@@ -277,13 +300,15 @@ pub async fn start_trim(
     job_id: Option<String>,
     path: String,
     request: TrimRequest,
+    output_path: Option<String>,
 ) -> Result<JobResult, ErrorDetails> {
     let file_path = PathBuf::from(&path);
     let ffprobe_bin = resolve_binary(&app, "ffprobe").map_err(|e| e.to_user_friendly())?;
     let ffmpeg_bin = resolve_binary(&app, "ffmpeg").map_err(|e| e.to_user_friendly())?;
 
     let probe = probe_media_file(&ffprobe_bin, &file_path).map_err(|e| e.to_user_friendly())?;
-    let plan = plan_trim(&probe, &request).map_err(|e| e.to_user_friendly())?;
+    let mut plan = plan_trim(&probe, &request).map_err(|e| e.to_user_friendly())?;
+    apply_selected_output_path(&mut plan, output_path.as_deref()).map_err(|e| e.to_user_friendly())?;
 
     let job_id = job_id.unwrap_or_else(|| {
         format!(

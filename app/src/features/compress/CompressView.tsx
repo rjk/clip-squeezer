@@ -7,12 +7,15 @@ import {
   CompressRequest,
 } from '../../types/media';
 import { Icon } from '../../components/Icon';
+import { OutputFileDetails } from '../../components/OutputFileDetails';
 
 interface CompressViewProps {
   mediaInfo: MediaInfo;
   initialRequest?: CompressRequest | null;
-  onStartCompress: (request: CompressRequest) => void;
+  onStartCompress: (request: CompressRequest, suggestedFilename: string) => void;
   onChange?: (request: CompressRequest) => void;
+  selectedOutputPath?: string | null;
+  onEditOutput: (suggestedPath: string, suggestedFilename: string) => void;
   onBack: () => void;
 }
 
@@ -21,6 +24,8 @@ export const CompressView: React.FC<CompressViewProps> = ({
   initialRequest,
   onStartCompress,
   onChange,
+  selectedOutputPath,
+  onEditOutput,
   onBack,
 }) => {
   const [quality, setQuality] = useState<CompressQuality>(
@@ -56,7 +61,7 @@ export const CompressView: React.FC<CompressViewProps> = ({
       compatibility,
     };
     onChange?.(req);
-    onStartCompress(req);
+    onStartCompress(req, `${mediaInfo.filename.replace(/\.[^/.]+$/, '')}-smaller.mp4`);
   };
 
   const vStream = mediaInfo.video_streams?.[0];
@@ -147,10 +152,6 @@ export const CompressView: React.FC<CompressViewProps> = ({
   };
 
   const currentEstimateBytes = calculateEstimateBytes(quality, resolution, compatibility);
-  const savingsPercent = Math.round(
-    ((mediaInfo.size_bytes - currentEstimateBytes) / mediaInfo.size_bytes) * 100
-  );
-
   return (
     <div className="config-card">
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -267,21 +268,14 @@ export const CompressView: React.FC<CompressViewProps> = ({
           </div>
         </div>
 
-        {/* Reassurance Notice & Submit */}
         <div className="config-actions">
-          <div>
-            <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: '600' }}>
-              New file size: around {formatBytes(currentEstimateBytes)}
-              {savingsPercent > 0 && (
-                <span style={{ marginLeft: '6px', color: 'var(--primary)', fontWeight: '600' }}>
-                  ({savingsPercent}% smaller)
-                </span>
-              )}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Your original file is never modified.
-            </div>
-          </div>
+          <OutputFileDetails
+            sourcePath={mediaInfo.path}
+            suggestedFilename={`${mediaInfo.filename.replace(/\.[^/.]+$/, '')}-smaller.mp4`}
+            selectedOutputPath={selectedOutputPath}
+            estimatedSize={formatBytes(currentEstimateBytes)}
+            onEditOutput={onEditOutput}
+          />
 
           <button type="submit" className="btn-primary">
             <Icon name="make-smaller" size={16} />

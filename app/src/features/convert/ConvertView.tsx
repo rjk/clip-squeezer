@@ -4,14 +4,20 @@ import {
   MediaInfo,
   ConvertFormat,
   ConvertRequest,
+  GifSizeEstimate,
 } from '../../types/media';
 import { Icon } from '../../components/Icon';
+import { OutputFileDetails } from '../../components/OutputFileDetails';
 
 interface ConvertViewProps {
   mediaInfo: MediaInfo;
   initialRequest?: ConvertRequest | null;
-  onStartConvert: (request: ConvertRequest) => void;
+  onStartConvert: (request: ConvertRequest, suggestedFilename: string) => void;
   onChange?: (request: ConvertRequest) => void;
+  selectedOutputPath?: string | null;
+  onEditOutput: (suggestedPath: string, suggestedFilename: string) => void;
+  cachedGifEstimate?: GifSizeEstimate | null;
+  onGifEstimate: (estimate: GifSizeEstimate) => void;
   onBack: () => void;
 }
 
@@ -23,18 +29,24 @@ interface ConversionPlanSummary {
   message: string;
 }
 
-interface GifSizeEstimate {
-  estimated_size_bytes: number;
-  friendly_estimated_size: string;
-  exceeds_size_limit: boolean;
-  size_limit_bytes: number;
-}
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  if (bytes < 1024 * 1024 * 1024) {
+    const megabytes = bytes / (1024 * 1024);
+    return `${megabytes >= 10 ? Math.round(megabytes) : megabytes.toFixed(1)} MB`;
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
 
 export const ConvertView: React.FC<ConvertViewProps> = ({
   mediaInfo,
   initialRequest,
   onStartConvert,
   onChange,
+  selectedOutputPath,
+  onEditOutput,
+  cachedGifEstimate,
+  onGifEstimate,
   onBack,
 }) => {
   const inputExt = mediaInfo.filename.split('.').pop()?.toLowerCase() || '';
@@ -87,11 +99,11 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
     () => initialRequest?.allow_large_gif || false
   );
   const [summaries, setSummaries] = useState<Partial<Record<ConvertFormat, ConversionPlanSummary>>>({});
-  const [gifEstimate, setGifEstimate] = useState<GifSizeEstimate | null>(null);
   const [isEstimatingGif, setIsEstimatingGif] = useState(false);
   const [convertAfterEstimate, setConvertAfterEstimate] = useState(false);
 
   const handleFormatSelect = (newFormat: ConvertFormat) => {
+    if (newFormat === 'Gif' && !cachedGifEstimate) setIsEstimatingGif(true);
     setFormat(newFormat);
     if (newFormat !== 'Gif') setConvertAfterEstimate(false);
     const nextAllowLargeGif = newFormat === 'Gif' ? allowLargeGif : false;
@@ -126,16 +138,19 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
   useEffect(() => {
     if (format !== 'Gif') {
       setIsEstimatingGif(false);
-      setGifEstimate(null);
+      return;
+    }
+
+    if (cachedGifEstimate) {
+      setIsEstimatingGif(false);
       return;
     }
 
     let isCurrent = true;
-    setGifEstimate(null);
     setIsEstimatingGif(true);
     invoke<GifSizeEstimate>('estimate_gif', { path: mediaInfo.path })
       .then((estimate) => {
-        if (isCurrent) setGifEstimate(estimate);
+        if (isCurrent) onGifEstimate(estimate);
       })
       .catch((err) => {
         console.error('Failed to estimate GIF size:', err);
@@ -147,12 +162,17 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
     return () => {
       isCurrent = false;
     };
-  }, [format, mediaInfo.path]);
+  }, [cachedGifEstimate, format, mediaInfo.path, onGifEstimate]);
 
   const currentSummary = summaries[format];
   const gifNeedsConfirmation = Boolean(
-    format === 'Gif' && gifEstimate?.exceeds_size_limit && !allowLargeGif
+    format === 'Gif' && cachedGifEstimate?.exceeds_size_limit && !allowLargeGif
   );
+  const estimatedSize = format === 'Gif'
+    ? cachedGifEstimate?.friendly_estimated_size || formatBytes(Math.max(64 * 1024, mediaInfo.size_bytes * 0.5))
+    : currentSummary?.is_remux
+      ? mediaInfo.friendly_size
+      : formatBytes(Math.max(64 * 1024, mediaInfo.size_bytes * 0.75));
 
   useEffect(() => {
     if (!convertAfterEstimate || isEstimatingGif) return;
@@ -162,7 +182,7 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
 
     const request = { format, allow_large_gif: allowLargeGif };
     onChange?.(request);
-    onStartConvert(request);
+    onStartConvert(request, `${mediaInfo.filename.replace(/\.[^/.]+$/, '')}-converted.${format.toLowerCase()}`);
   }, [allowLargeGif, convertAfterEstimate, format, gifNeedsConfirmation, isEstimatingGif, onChange, onStartConvert]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -180,7 +200,7 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
       allow_large_gif: allowLargeGif || gifNeedsConfirmation,
     };
     onChange?.(request);
-    onStartConvert(request);
+    onStartConvert(request, `${mediaInfo.filename.replace(/\.[^/.]+$/, '')}-converted.${format.toLowerCase()}`);
   };
 
   return (
@@ -241,29 +261,17 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
         </div>
 
         <div className="config-actions">
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500' }}>
-              New file size:{' '}
-              <strong>
-                {format === 'Gif'
-                  ? isEstimatingGif
-                    ? 'estimating…'
-                    : gifEstimate
-                    ? `around ${gifEstimate.friendly_estimated_size}`
-                    : 'will be checked while converting'
-                  : 'shown when conversion finishes'}
-              </strong>
-            </div>
-            {gifNeedsConfirmation ? (
-              <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '2px' }}>
-                Above the 25 MB sharing limit. A shorter clip or MP4 will be more practical.
-              </div>
-            ) : (
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Your original file is never modified.
-              </div>
-            )}
-          </div>
+          <OutputFileDetails
+            sourcePath={mediaInfo.path}
+            suggestedFilename={`${mediaInfo.filename.replace(/\.[^/.]+$/, '')}-converted.${format.toLowerCase()}`}
+            selectedOutputPath={selectedOutputPath}
+            estimatedSize={estimatedSize}
+            isEstimating={format === 'Gif' && isEstimatingGif}
+            warning={format === 'Gif' && cachedGifEstimate?.exceeds_size_limit
+              ? 'Above the 25 MB sharing limit. A shorter clip or MP4 will be more practical.'
+              : null}
+            onEditOutput={onEditOutput}
+          />
 
           <button type="submit" className="btn-primary">
             <Icon name="convert" size={16} />

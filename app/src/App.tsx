@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { ask, save } from '@tauri-apps/plugin-dialog';
 import {
   MediaInfo,
   ErrorDetails,
@@ -10,6 +11,7 @@ import {
   ExtractAudioRequest,
   TrimRequest,
   JobResult,
+  GifSizeEstimate,
 } from './types/media';
 import { DropZone } from './components/DropZone';
 import { FileSummaryHeader } from './components/FileSummaryHeader';
@@ -22,6 +24,7 @@ import { ProcessingView } from './components/ProcessingView';
 import { SuccessView } from './components/SuccessView';
 import { HistoryModal, HistoryItem } from './components/HistoryModal';
 import { Icon } from './components/Icon';
+import { fileExtension, hasOutputExtension, withOutputExtension } from './utils/outputPath';
 import './App.css';
 
 export function App() {
@@ -105,6 +108,9 @@ export function App() {
   const [convertRequest, setConvertRequest] = useState<ConvertRequest | null>(null);
   const [extractAudioRequest, setExtractAudioRequest] = useState<ExtractAudioRequest | null>(null);
   const [trimRequest, setTrimRequest] = useState<TrimRequest | null>(null);
+  const [gifEstimate, setGifEstimate] = useState<GifSizeEstimate | null>(null);
+  const [selectedOutputPath, setSelectedOutputPath] = useState<string | null>(null);
+  const [processingOutputFilename, setProcessingOutputFilename] = useState<string | null>(null);
 
   const handleFileSelected = async (path: string) => {
     setIsProbing(true);
@@ -115,6 +121,8 @@ export function App() {
     setConvertRequest(null);
     setExtractAudioRequest(null);
     setTrimRequest(null);
+    setGifEstimate(null);
+    setSelectedOutputPath(null);
 
     try {
       const info = await invoke<MediaInfo>('probe_media', { path });
@@ -136,8 +144,100 @@ export function App() {
     }
   };
 
-  const handleStartCompress = async (request: CompressRequest) => {
+  const handleGifEstimate = useCallback((estimate: GifSizeEstimate) => {
+    setGifEstimate(estimate);
+  }, []);
+
+  const defaultOutputPath = (filename: string) => {
+    if (!mediaInfo) return filename;
+    const lastSeparator = Math.max(mediaInfo.path.lastIndexOf('/'), mediaInfo.path.lastIndexOf('\\'));
+    return lastSeparator === -1
+      ? filename
+      : `${mediaInfo.path.slice(0, lastSeparator + 1)}${filename}`;
+  };
+
+  const chooseOutputPath = async (
+    suggestedPath: string,
+    suggestedFilename: string,
+    startInSourceDirectory = true
+  ): Promise<string | null> => {
+    const filename = suggestedPath.split(/[\\/]/).pop() || suggestedPath;
+    const suggestedPathIncludesDirectory = /[\\/]/.test(suggestedPath);
+    const expectedExtension = fileExtension(suggestedFilename);
+    const outputPath = await save({
+      title: 'Choose output file',
+      filters: expectedExtension
+        ? [{ name: `${expectedExtension.toUpperCase()} file`, extensions: [expectedExtension] }]
+        : undefined,
+      defaultPath: selectedOutputPath
+        ? withOutputExtension(selectedOutputPath, suggestedFilename)
+        : (
+          startInSourceDirectory
+            ? suggestedPathIncludesDirectory ? suggestedPath : defaultOutputPath(filename)
+            : filename
+        ),
+    });
+    if (!outputPath) return null;
+
+    const correctedOutputPath = withOutputExtension(outputPath, suggestedFilename);
+    if (expectedExtension && !hasOutputExtension(outputPath, suggestedFilename)) {
+      const shouldUseCorrectedName = await ask(
+        `This action needs a .${expectedExtension} file. Save it as “${correctedOutputPath.split(/[\\/]/).pop()}” instead?`,
+        { title: 'Use the correct file extension', kind: 'warning' }
+      );
+      if (!shouldUseCorrectedName) return null;
+    }
+
+    if (mediaInfo && correctedOutputPath === mediaInfo.path) {
+      setError({
+        title: 'Choose a different output file',
+        message: 'The output file must be different from the original file.',
+        technical_details: null,
+      });
+      return null;
+    }
+
+    setSelectedOutputPath(correctedOutputPath);
+    return correctedOutputPath;
+  };
+
+  const resolveOutputPath = async (suggestedFilename: string): Promise<string | null> => {
+    if (!mediaInfo) return null;
+    if (selectedOutputPath) return withOutputExtension(selectedOutputPath, suggestedFilename);
+
+    try {
+      const defaultPath = await invoke<string>('suggest_output_path', {
+        path: mediaInfo.path,
+        filename: suggestedFilename,
+      });
+      const canWrite = await invoke<boolean>('can_write_output_next_to_source', {
+        path: mediaInfo.path,
+      });
+      return canWrite ? defaultPath : chooseOutputPath(defaultPath, suggestedFilename, false);
+    } catch (err) {
+      console.error('Could not check output location:', err);
+      setError({
+        title: 'Could not check output location',
+        message: 'Please choose where to save the output file.',
+        technical_details: String(err),
+      });
+      return chooseOutputPath(suggestedFilename, suggestedFilename, false);
+    }
+  };
+
+  const prepareOutputPath = async (suggestedFilename: string): Promise<string | null> => {
+    const outputPath = await resolveOutputPath(suggestedFilename);
+    if (outputPath) {
+      setProcessingOutputFilename(outputPath.split(/[\\/]/).pop() || suggestedFilename);
+    }
+    return outputPath;
+  };
+
+  const handleStartCompress = async (request: CompressRequest, suggestedFilename: string) => {
     if (!mediaInfo) return;
+
+    const outputPath = await prepareOutputPath(suggestedFilename);
+    if (outputPath === null) return;
 
     setCompressRequest(request);
     setIsProcessing(true);
@@ -152,6 +252,7 @@ export function App() {
         jobId,
         path: mediaInfo.path,
         request,
+        outputPath,
       });
       setJobResult(result);
       addToHistory('compress', 'Make smaller', result);
@@ -177,8 +278,11 @@ export function App() {
     }
   };
 
-  const handleStartConvert = async (request: ConvertRequest) => {
+  const handleStartConvert = async (request: ConvertRequest, suggestedFilename: string) => {
     if (!mediaInfo) return;
+
+    const outputPath = await prepareOutputPath(suggestedFilename);
+    if (outputPath === null) return;
 
     setConvertRequest(request);
     setIsProcessing(true);
@@ -193,6 +297,7 @@ export function App() {
         jobId,
         path: mediaInfo.path,
         request,
+        outputPath,
       });
       setJobResult(result);
       addToHistory('convert', `Convert to ${request.format}`, result);
@@ -218,8 +323,11 @@ export function App() {
     }
   };
 
-  const handleStartExtractAudio = async (request: ExtractAudioRequest) => {
+  const handleStartExtractAudio = async (request: ExtractAudioRequest, suggestedFilename: string) => {
     if (!mediaInfo) return;
+
+    const outputPath = await prepareOutputPath(suggestedFilename);
+    if (outputPath === null) return;
 
     setExtractAudioRequest(request);
     setIsProcessing(true);
@@ -234,6 +342,7 @@ export function App() {
         jobId,
         path: mediaInfo.path,
         request,
+        outputPath,
       });
       setJobResult(result);
       addToHistory('extract_audio', 'Extract audio', result);
@@ -259,8 +368,11 @@ export function App() {
     }
   };
 
-  const handleStartTrim = async (request: TrimRequest) => {
+  const handleStartTrim = async (request: TrimRequest, suggestedFilename: string) => {
     if (!mediaInfo) return;
+
+    const outputPath = await prepareOutputPath(suggestedFilename);
+    if (outputPath === null) return;
 
     setTrimRequest(request);
     setIsProcessing(true);
@@ -275,6 +387,7 @@ export function App() {
         jobId,
         path: mediaInfo.path,
         request,
+        outputPath,
       });
       setJobResult(result);
       addToHistory('trim', 'Trim video', result);
@@ -325,6 +438,9 @@ export function App() {
     setConvertRequest(null);
     setExtractAudioRequest(null);
     setTrimRequest(null);
+    setGifEstimate(null);
+    setSelectedOutputPath(null);
+    setProcessingOutputFilename(null);
   };
 
   const getTargetFilename = (): string | null => {
@@ -381,31 +497,40 @@ export function App() {
 
       <main className="app-main">
         {error && (
-          <div className="error-container">
-            <h3 className="error-title">{error.title}</h3>
-            <p className="error-message">{error.message}</p>
-            {error.technical_details && (
-              <pre className="tech-details">{error.technical_details}</pre>
-            )}
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn-secondary" onClick={() => setError(null)}>
-                <Icon name="close" size={16} /> Dismiss
-              </button>
-              {error.technical_details && (
-                <button
-                  className="btn-secondary"
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                       `${error.title}\n${error.message}\n${error.technical_details}`
-                    );
-                    setHasCopied(true);
-                    setTimeout(() => setHasCopied(false), 2000);
-                  }}
-                >
-                  <Icon name={hasCopied ? 'check' : 'copy'} size={16} />
-                  {hasCopied ? 'Copied to clipboard!' : 'Copy technical details'}
+          <div className="modal-backdrop" onClick={() => setError(null)}>
+            <div className="modal-card error-modal-card" role="alertdialog" aria-modal="true" aria-labelledby="error-modal-title" onClick={(event) => event.stopPropagation()}>
+              <div className="error-modal-header">
+                <div>
+                  <h3 id="error-modal-title" className="error-title">{error.title}</h3>
+                </div>
+                <button className="btn-close" onClick={() => setError(null)} aria-label="Close error message">
+                  <Icon name="close" size={18} />
                 </button>
+              </div>
+              <p className="error-message">{error.message}</p>
+              {error.technical_details && (
+                <pre className="tech-details">{error.technical_details}</pre>
               )}
+              <div className="error-modal-actions">
+                {error.technical_details && (
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                         `${error.title}\n${error.message}\n${error.technical_details}`
+                      );
+                      setHasCopied(true);
+                      setTimeout(() => setHasCopied(false), 2000);
+                    }}
+                  >
+                    <Icon name={hasCopied ? 'check' : 'copy'} size={16} />
+                    {hasCopied ? 'Copied to clipboard!' : 'Copy technical details'}
+                  </button>
+                )}
+                <button className="btn-primary" onClick={() => setError(null)}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -416,7 +541,7 @@ export function App() {
           <ProcessingView
             title={processingTitle}
             sourceFilename={mediaInfo.filename}
-            targetFilename={getTargetFilename()}
+            targetFilename={processingOutputFilename || getTargetFilename()}
             jobId={currentJobId}
             onCancel={handleCancelJob}
             isCancelling={isCancelling}
@@ -430,7 +555,9 @@ export function App() {
             {!selectedAction ? (
               <ActionSelector
                 mediaInfo={mediaInfo}
-                onSelectAction={(action) => setSelectedAction(action)}
+                onSelectAction={(action) => {
+                  setSelectedAction(action);
+                }}
               />
             ) : selectedAction === 'compress' ? (
               <CompressView
@@ -438,6 +565,8 @@ export function App() {
                 initialRequest={compressRequest}
                 onChange={setCompressRequest}
                 onStartCompress={handleStartCompress}
+                selectedOutputPath={selectedOutputPath}
+                onEditOutput={chooseOutputPath}
                 onBack={() => setSelectedAction(null)}
               />
             ) : selectedAction === 'convert' ? (
@@ -446,6 +575,10 @@ export function App() {
                 initialRequest={convertRequest}
                 onChange={setConvertRequest}
                 onStartConvert={handleStartConvert}
+                selectedOutputPath={selectedOutputPath}
+                onEditOutput={chooseOutputPath}
+                cachedGifEstimate={gifEstimate}
+                onGifEstimate={handleGifEstimate}
                 onBack={() => setSelectedAction(null)}
               />
             ) : selectedAction === 'extract_audio' ? (
@@ -454,6 +587,8 @@ export function App() {
                 initialRequest={extractAudioRequest}
                 onChange={setExtractAudioRequest}
                 onStartExtract={handleStartExtractAudio}
+                selectedOutputPath={selectedOutputPath}
+                onEditOutput={chooseOutputPath}
                 onBack={() => setSelectedAction(null)}
               />
             ) : selectedAction === 'trim' ? (
@@ -462,6 +597,8 @@ export function App() {
                 initialRequest={trimRequest}
                 onChange={setTrimRequest}
                 onStartTrim={handleStartTrim}
+                selectedOutputPath={selectedOutputPath}
+                onEditOutput={chooseOutputPath}
                 onBack={() => setSelectedAction(null)}
               />
             ) : (

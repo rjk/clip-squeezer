@@ -83,3 +83,10 @@ export interface JobResult {
   friendly_duration?: string | null;
   friendly_resolution?: string | null;
 }
+
+export interface GifSizeEstimate {
+  estimated_size_bytes: number;
+  friendly_estimated_size: string;
+  exceeds_size_limit: boolean;
+  size_limit_bytes: number;
+}

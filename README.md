@@ -38,6 +38,7 @@ Available for **Windows** and **macOS**. Free and open source.
 - **100% local & private** — Everything is processed on your computer. Your media is never uploaded.
 - **No telemetry or tracking** — No advertising. No analytics. No background data collection.
 - **Safe by default** — Your original video is never overwritten. Outputs are always saved as new files.
+- **Choose where files go** — Outputs default next to the original when that folder is writable. Use the edit icon to choose a filename or another location; Clip Squeezer asks before replacing an existing file.
 - **Simple** — Pick a tool, choose your file, and get your result. Under the hood it uses the best video and sound processing, retaining high quality and lossless where possible.
 - **Open source** — The application and its build process can be inspected on GitHub. 
 

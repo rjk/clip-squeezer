@@ -19,6 +19,7 @@ pub enum MediaError {
     ProcessFailed { exit_code: Option<i32>, stderr: String },
     Cancelled,
     OutputSizeLimitExceeded { limit_bytes: u64 },
+    InvalidOutputPath(String),
     OutputValidationFailed(String),
     BinaryNotFound(String),
     IoError(String),
@@ -74,6 +75,11 @@ impl MediaError {
                     limit_bytes / (1024 * 1024)
                 ),
                 technical_details: None,
+            },
+            MediaError::InvalidOutputPath(reason) => ErrorDetails {
+                title: "Choose a different output file".to_string(),
+                message: "The output file must be different from the original file.".to_string(),
+                technical_details: Some(reason.clone()),
             },
             MediaError::OutputValidationFailed(reason) => ErrorDetails {
                 title: "Verification failed".to_string(),

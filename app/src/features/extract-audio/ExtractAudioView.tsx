@@ -5,12 +5,15 @@ import {
   ExtractAudioRequest,
 } from '../../types/media';
 import { Icon } from '../../components/Icon';
+import { OutputFileDetails } from '../../components/OutputFileDetails';
 
 interface ExtractAudioViewProps {
   mediaInfo: MediaInfo;
   initialRequest?: ExtractAudioRequest | null;
-  onStartExtract: (request: ExtractAudioRequest) => void;
+  onStartExtract: (request: ExtractAudioRequest, suggestedFilename: string) => void;
   onChange?: (request: ExtractAudioRequest) => void;
+  selectedOutputPath?: string | null;
+  onEditOutput: (suggestedPath: string, suggestedFilename: string) => void;
   onBack: () => void;
 }
 
@@ -19,6 +22,8 @@ export const ExtractAudioView: React.FC<ExtractAudioViewProps> = ({
   initialRequest,
   onStartExtract,
   onChange,
+  selectedOutputPath,
+  onEditOutput,
   onBack,
 }) => {
   const [mode, setMode] = useState<ExtractAudioMode>(
@@ -33,7 +38,7 @@ export const ExtractAudioView: React.FC<ExtractAudioViewProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onChange?.({ mode });
-    onStartExtract({ mode });
+    onStartExtract({ mode }, targetFilename);
   };
 
   if (!mediaInfo.has_audio) {
@@ -80,7 +85,14 @@ export const ExtractAudioView: React.FC<ExtractAudioViewProps> = ({
 
   const baseName = mediaInfo.filename.replace(/\.[^/.]+$/, '');
   const targetExt = mode === 'Mp3' ? '.mp3' : mode === 'M4a' ? '.m4a' : origExt;
-  const targetFilename = `${baseName} (audio)${targetExt}`;
+  const targetFilename = `${baseName}-audio${targetExt}`;
+  const estimatedSizeBytes = Math.max(
+    32 * 1024,
+    Math.round((mediaInfo.duration_seconds || 1) * (mode === 'M4a' ? 160 : 192) * 1000 / 8)
+  );
+  const estimatedSize = estimatedSizeBytes < 1024 * 1024
+    ? `${Math.round(estimatedSizeBytes / 1024)} KB`
+    : `${(estimatedSizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 
   const options: { id: ExtractAudioMode; title: string; desc: string; info: string }[] = [
     {
@@ -145,14 +157,13 @@ export const ExtractAudioView: React.FC<ExtractAudioViewProps> = ({
         </div>
 
         <div className="config-actions">
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500' }}>
-              Output file: <strong>{targetFilename}</strong>
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Your original file is never modified.
-            </div>
-          </div>
+          <OutputFileDetails
+            sourcePath={mediaInfo.path}
+            suggestedFilename={targetFilename}
+            selectedOutputPath={selectedOutputPath}
+            estimatedSize={estimatedSize}
+            onEditOutput={onEditOutput}
+          />
 
           <button type="submit" className="btn-primary">
             <Icon name="extract-audio" size={16} />

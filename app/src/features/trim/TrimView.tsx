@@ -2,12 +2,15 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { MediaInfo, TrimRequest } from '../../types/media';
 import { Icon } from '../../components/Icon';
+import { OutputFileDetails } from '../../components/OutputFileDetails';
 
 interface TrimViewProps {
   mediaInfo: MediaInfo;
   initialRequest?: TrimRequest | null;
-  onStartTrim: (request: TrimRequest) => void;
+  onStartTrim: (request: TrimRequest, suggestedFilename: string) => void;
   onChange?: (request: TrimRequest) => void;
+  selectedOutputPath?: string | null;
+  onEditOutput: (suggestedPath: string, suggestedFilename: string) => void;
   onBack: () => void;
 }
 
@@ -18,6 +21,8 @@ export const TrimView: React.FC<TrimViewProps> = ({
   initialRequest,
   onStartTrim,
   onChange,
+  selectedOutputPath,
+  onEditOutput,
   onBack,
 }) => {
   const duration = Math.max(0.1, mediaInfo.duration_seconds);
@@ -432,7 +437,7 @@ export const TrimView: React.FC<TrimViewProps> = ({
       end_seconds: endSeconds,
     };
     onChange?.(req);
-    onStartTrim(req);
+    onStartTrim(req, targetFilename);
   };
 
   const startPercent = (startSeconds / duration) * 100;
@@ -442,10 +447,11 @@ export const TrimView: React.FC<TrimViewProps> = ({
   const keptDuration = Math.max(0.1, endSeconds - startSeconds);
   const durationRatio = Math.min(1, keptDuration / duration);
   const estimatedBytes = Math.max(20 * 1024, Math.round(mediaInfo.size_bytes * durationRatio));
-  const savingsPercent = Math.round(
-    ((mediaInfo.size_bytes - estimatedBytes) / mediaInfo.size_bytes) * 100
-  );
-
+  const sourceExtension = mediaInfo.filename.split('.').pop()?.toLowerCase();
+  const targetExtension = sourceExtension === 'mov' || sourceExtension === 'mkv' || sourceExtension === 'webm'
+    ? sourceExtension
+    : 'mp4';
+  const targetFilename = `${mediaInfo.filename.replace(/\.[^/.]+$/, '')}-trimmed.${targetExtension}`;
   return (
     <div className="config-card">
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -749,19 +755,13 @@ export const TrimView: React.FC<TrimViewProps> = ({
 
         {/* Submit */}
         <div className="config-actions">
-          <div>
-            <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: '600' }}>
-              New file size: around {formatBytes(estimatedBytes)}
-              {savingsPercent > 0 && (
-                <span style={{ marginLeft: '6px', color: 'var(--primary)', fontWeight: '600' }}>
-                  ({savingsPercent}% smaller)
-                </span>
-              )}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Your original file is never modified.
-            </div>
-          </div>
+          <OutputFileDetails
+            sourcePath={mediaInfo.path}
+            suggestedFilename={targetFilename}
+            selectedOutputPath={selectedOutputPath}
+            estimatedSize={formatBytes(estimatedBytes)}
+            onEditOutput={onEditOutput}
+          />
 
           <button type="button" className="btn-primary" onClick={handleSubmit}>
             <Icon name="trim" size={16} />
@@ -772,4 +772,3 @@ export const TrimView: React.FC<TrimViewProps> = ({
     </div>
   );
 };
-
