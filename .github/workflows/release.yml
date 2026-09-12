@@ -80,7 +80,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: 'Clip Squeezer v__VERSION__'
           releaseBody: 'Download Clip Squeezer for Windows and macOS below.'
-          releaseAssetNamePattern: 'ClipSqueezer_[version]_[arch][_setup][ext]'
+          assetNamePattern: 'ClipSqueezer_[version]_[arch][_setup][ext]'
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
