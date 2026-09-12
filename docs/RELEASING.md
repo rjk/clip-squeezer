@@ -83,9 +83,9 @@ Once the workflow finishes (~5–10 minutes):
 2. **Latest Release Permalink**: [https://github.com/rjk/clip-squeezer/releases/latest](https://github.com/rjk/clip-squeezer/releases/latest)
 
 The release will contain:
-- `Clip Squeezer_0.1.0_x64-setup.exe` (Windows installer)
-- `Clip Squeezer_0.1.0_aarch64.dmg` (macOS Apple Silicon)
-- `Clip Squeezer_0.1.0_x64.dmg` (macOS Intel)
+- `ClipSqueezer_0.1.0_x64-setup.exe` (Windows installer)
+- `ClipSqueezer_0.1.0_aarch64.dmg` (macOS Apple Silicon)
+- `ClipSqueezer_0.1.0_x64.dmg` (macOS Intel)
 
 ---
 

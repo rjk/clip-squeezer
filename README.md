@@ -2,7 +2,16 @@
 
 **Four simple video tools. Free. Fast. On your device.**
 
-Make videos smaller, convert formats, trim the start or end, or extract the audio — without uploading your files or opening a full video editor.
+The perfect tool if you want to
+
+- Make a video smaller
+- Change video format
+- Trim the start or end
+- Extract audio from your video
+
+All without uploading your files to the cloud. Free. No ads.
+
+If you want to do more sophisticated editing, try other tools like [ffmpeg](https://ffmpeg.org/) (super fast, command line tool) or [Da Vinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve) (full-function video editing studio).
 
 Available for **Windows** and **macOS**. Free and open source.
 
@@ -17,8 +26,8 @@ Available for **Windows** and **macOS**. Free and open source.
 
 ## Four simple tools
 
-- **Compress** — Bring large video files down to size for sharing, with simple quality presets: **Best quality**, **Balanced**, and **Smallest file**.
-- **Convert** — Switch between MP4, MOV, MKV, and WebM easily.
+- **Compress** — Bring large video files down to size for sharing, with simple quality presets.
+- **Convert** — Switch between MP4, MOV, MKV, and WebM easily. Or create looping GIFs. 
 - **Trim** — Clip off the start and/or end of your video.
 - **Extract audio** — Save the sound or voice track, keeping original quality or compressing if you need it.
 
@@ -30,7 +39,7 @@ Available for **Windows** and **macOS**. Free and open source.
 - **No telemetry or tracking** — No advertising. No analytics. No background data collection.
 - **Safe by default** — Your original video is never overwritten. Outputs are always saved as new files.
 - **Simple** — Pick a tool, choose your file, and get your result. Under the hood it uses the best video and sound processing, retaining high quality and lossless where possible.
-- **Open source** — The application and its build process can be inspected on GitHub.
+- **Open source** — The application and its build process can be inspected on GitHub. 
 
 ---
 
